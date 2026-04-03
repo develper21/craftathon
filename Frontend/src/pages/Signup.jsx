@@ -37,11 +37,11 @@ export default function Signup() {
 
       setTimeout(() => {
         if (role === 'doctor') {
-          navigate('/doctor-dashboard')
+          navigate('/caregiver/dashboard', { replace: true })
         } else if (role === 'admin') {
-          navigate('/doctor-dashboard') // Admin also uses doctor dashboard
+          navigate('/caregiver/dashboard', { replace: true }) // Admin also uses caregiver dashboard
         } else {
-          navigate('/dashboard')
+          navigate('/dashboard', { replace: true })
         }
       }, 1000)
     }, 800)

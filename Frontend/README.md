@@ -139,8 +139,12 @@ Frontend/
 ### Public Routes
 
 - `/` - Landing page
-- `/login` - Login page
-- `/signup` - Signup page
+### Caregiver Routes (Protected - role: doctor)
+- `/caregiver/dashboard` - Caregiver home & patient overview
+- `/caregiver/patients` - Patients list & management
+- `/caregiver/alerts` - Patient alerts & notifications
+- `/caregiver/reports` - Adherence reports & analytics
+- `/caregiver/profile` - Caregiver profile & settings
 
 ### Patient Routes (Protected)
 
@@ -150,6 +154,7 @@ Frontend/
 - `/adherence` - View adherence statistics
 
 ### Doctor Routes (Protected)
+<<<<<<< Updated upstream
 
 - `/doctor-dashboard` - Doctor home
 - `/patient/:patientId` - Patient details
@@ -159,6 +164,11 @@ Frontend/
 
 - `/profile` - User profile and settings
 
+=======
+- `/patient/:patientId` - Patient details
+- `/alerts` - Patient alerts
+
+>>>>>>> Stashed changes
 ## 🔐 Authentication
 
 The app uses a simple context-based authentication system:

@@ -1,8 +1,29 @@
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import Navbar from '../components/Navbar'
 import Logo from '../components/Logo'
 
 export default function Landing() {
+  const { isAuthenticated, user, isLoading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (isLoading) return
+
+    if (isAuthenticated && user) {
+      if (user.role === 'doctor' || user.role === 'admin') {
+        navigate('/caregiver/dashboard', { replace: true })
+      } else if (user.role === 'patient') {
+        navigate('/dashboard', { replace: true })
+      }
+    }
+  }, [isAuthenticated, isLoading, user, navigate])
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]"><div className="text-gray-600">Loading...</div></div>
+  }
+
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
       <Navbar />
