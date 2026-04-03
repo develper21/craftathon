@@ -25,6 +25,16 @@ import CaregiverReports from '../pages/CaregiverReports'
 import CaregiverProfile from '../pages/CaregiverProfile'
 import CaregiverNotifications from '../pages/CaregiverNotifications'
 
+// Admin Components
+import AdminLayout from '../components/AdminLayout'
+import AdminDashboard from '../pages/AdminDashboard'
+import AdminUsers from '../pages/AdminUsers'
+import AdminAlerts from '../pages/AdminAlerts'
+import AdminAnalytics from '../pages/AdminAnalytics'
+import AdminSettings from '../pages/AdminSettings'
+import AdminNotifications from '../pages/AdminNotifications'
+import AdminProfile from '../pages/AdminProfile'
+
 // Protected Route Component
 const ProtectedRoute = ({ children, requiredRole = null }) => {
   const { isAuthenticated, user, isLoading } = useAuth()
@@ -145,6 +155,27 @@ export default function AppRoutes() {
 
       {/* Default Caregiver Redirect */}
       <Route path="/caregiver" element={<Navigate to="/caregiver/dashboard" replace />} />
+
+      {/* Admin Nested Routes */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="dashboard" element={<AdminDashboard />} />
+        <Route path="users" element={<AdminUsers />} />
+        <Route path="alerts" element={<AdminAlerts />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="settings" element={<AdminSettings />} />
+        <Route path="notifications" element={<AdminNotifications />} />
+        <Route path="profile" element={<AdminProfile />} />
+      </Route>
+
+      {/* Default Admin Redirect */}
+      <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" />} />

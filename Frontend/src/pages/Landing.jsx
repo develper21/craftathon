@@ -12,8 +12,10 @@ export default function Landing() {
     if (isLoading) return
 
     if (isAuthenticated && user) {
-      if (user.role === 'doctor' || user.role === 'admin') {
+      if (user.role === 'doctor') {
         navigate('/caregiver/dashboard', { replace: true })
+      } else if (user.role === 'admin') {
+        navigate('/admin/dashboard', { replace: true })
       } else if (user.role === 'patient') {
         navigate('/dashboard', { replace: true })
       }

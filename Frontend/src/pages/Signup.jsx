@@ -39,7 +39,7 @@ export default function Signup() {
         if (role === 'doctor') {
           navigate('/caregiver/dashboard', { replace: true })
         } else if (role === 'admin') {
-          navigate('/caregiver/dashboard', { replace: true }) // Admin also uses caregiver dashboard
+          navigate('/admin/dashboard', { replace: true })
         } else {
           navigate('/dashboard', { replace: true })
         }
