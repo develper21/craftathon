@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #ACD8FF 0%, #E8F2FF 100%);
+  color: #111827;
+  min-height: 100vh;
+}
+
+@layer components {
+  .clay-card {
+    @apply bg-white rounded-clay shadow-clay p-6;
+  }
+
+  .clay-button {
+    @apply px-6 py-3 rounded-clay font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95;
+  }
+
+  .clay-button-primary {
+    @apply clay-button bg-primary-blue text-white hover:shadow-lg;
+  }
+
+  .clay-button-secondary {
+    @apply clay-button bg-primary-dark text-white hover:shadow-lg;
+  }
+
+  .clay-input {
+    @apply w-full px-4 py-3 rounded-clay border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-blue transition-all shadow-clay-sm;
+  }
+}
+
+input:focus {
+  border-color: #0066FC !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #ACD8FF;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0066FC;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #205658;
+}
