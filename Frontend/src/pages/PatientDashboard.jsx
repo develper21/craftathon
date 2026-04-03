@@ -15,15 +15,15 @@ export default function PatientDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Request push notification permission on mount
-  useEffect(() => {
-    requestPermission()
-  }, [])
-
   // Fetch dashboard data on mount
   useEffect(() => {
     fetchDashboardData()
   }, [])
+
+  // Request push notification permission - only after user interaction
+  const handleEnableNotifications = () => {
+    requestPermission()
+  }
 
   const fetchDashboardData = async () => {
     try {
@@ -32,7 +32,7 @@ export default function PatientDashboard() {
 
       // Fetch pending doses and adherence in parallel
       const [pendingRes, adherenceRes, streakRes] = await Promise.all([
-        api.getPendingDoses().catch(() => ({ data: { pending: [] } })),
+        (!user.roles || user.roles.includes(user?.role?.toLowerCase())) ? api.getPendingDoses().catch(() => ({ data: { pending: [] } })) : { data: { pending: [] } },
         api.getAdherenceScore(7).catch(() => ({ data: { adherenceScore: 0 } })),
         api.getStreak().catch(() => ({ data: { currentStreak: 0, longestStreak: 0 } }))
       ])
@@ -241,7 +241,7 @@ export default function PatientDashboard() {
           <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200 text-center hover:shadow-lg transition-shadow">
             <h3 className="text-lg font-bold text-gray-900 mb-6">Weekly Adherence</h3>
             <div className="flex justify-center mb-4">
-              <CircleProgress percentage={adherenceRate} size="md" />
+              <CircleProgress percentage={adherenceRate} size={120} />
             </div>
             <p className="text-sm text-gray-600">Keep up the great work!</p>
           </div>
