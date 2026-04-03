@@ -12,9 +12,10 @@ export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    setNotification(null)
 
     if (!email || !password) {
       setNotification({ message: 'Please fill all fields', type: 'error' })
@@ -22,22 +23,31 @@ export default function Login() {
       return
     }
 
-    setTimeout(() => {
-      const userData = { email, role, name: email.split('@')[0] }
-      login(userData)
-      setNotification({ message: 'Sign in successful', type: 'success' })
+    try {
+      const result = await login(email, password)
+      
+      if (result.success) {
+        setNotification({ message: 'Sign in successful', type: 'success' })
+        
+        // Redirect based on role
+        const userRole = result.user?.role?.toLowerCase() || role
+        setTimeout(() => {
+          if (userRole === 'doctor' || userRole === 'caregiver') {
+            navigate('/doctor-dashboard')
+          } else if (userRole === 'admin') {
+            navigate('/doctor-dashboard')
+          } else {
+            navigate('/dashboard')
+          }
+        }, 1000)
+      } else {
+        setNotification({ message: result.message || 'Login failed', type: 'error' })
+      }
+    } catch (error) {
+      setNotification({ message: 'Network error. Please try again.', type: 'error' })
+    } finally {
       setIsLoading(false)
-
-      setTimeout(() => {
-        if (role === 'doctor') {
-          navigate('/caregiver/dashboard', { replace: true })
-        } else if (role === 'admin') {
-          navigate('/admin/dashboard', { replace: true })
-        } else {
-          navigate('/dashboard', { replace: true })
-        }
-      }, 1000)
-    }, 800)
+    }
   }
 
   return (
@@ -82,9 +92,15 @@ export default function Login() {
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
+              {/* Forgot Password Link */}
+              <div className="flex justify-between items-center">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Password
+                </label>
+                <Link to="/forgot-password" className="text-sm text-[#2F5B8C] hover:text-[#264a73]">
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 type="password"
                 placeholder="••••••••"
