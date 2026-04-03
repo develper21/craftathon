@@ -175,17 +175,71 @@ export default function Landing() {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                icon: '📱',
+                icon: (
+                  <svg className="w-12 h-12 text-[#2F5B8C]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Medication Pill with Bell */}
+                    <g>
+                      {/* Rounded pill shape */}
+                      <rect x="6" y="10" width="12" height="8" rx="4" ry="4" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5"/>
+                      
+                      {/* Bell notification */}
+                      <path d="M14 6C14 4.9 14.9 4 16 4C17.1 4 18 4.9 18 6H14Z" fill="currentColor"/>
+                      <path d="M15 7V6C15 5.45 15.45 5 16 5C16.55 5 17 5.45 17 6V7H15Z" fill="currentColor"/>
+                      <circle cx="16" cy="8" r="4" fill="#22C55E" stroke="white" strokeWidth="1.5"/>
+                      <path d="M15.5 7.5L16.5 8.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                      
+                      {/* Dot on pill */}
+                      <circle cx="12" cy="13" r="0.8" fill="currentColor"/>
+                      <circle cx="9" cy="13" r="0.8" fill="currentColor"/>
+                    </g>
+                  </svg>
+                ),
                 title: 'Smart Reminders',
                 description: 'Personalized medication reminders at optimal times. Customizable alerts through SMS, push, or email.'
               },
               {
-                icon: '📊',
+                icon: (
+                  <svg className="w-12 h-12 text-[#2F5B8C]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Analytics Chart */}
+                    <g>
+                      {/* Grid background */}
+                      <rect x="3" y="3" width="18" height="18" rx="2" fill="currentColor" opacity="0.05" stroke="currentColor" strokeWidth="1"/>
+                      
+                      {/* Y-axis bars */}
+                      <rect x="5" y="14" width="2.5" height="5" rx="1" fill="currentColor" opacity="0.4"/>
+                      <rect x="9.5" y="10" width="2.5" height="9" rx="1" fill="currentColor" opacity="0.6"/>
+                      <rect x="14" y="7" width="2.5" height="12" rx="1" fill="currentColor"/>
+                      <rect x="18.5" y="9" width="2.5" height="10" rx="1" fill="#22C55E"/>
+                      
+                      {/* Trending line */}
+                      <polyline points="6 13 11 8 16 6 20 8" stroke="#22C55E" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                      
+                      {/* Up arrow */}
+                      <path d="M7 13L7 5M3 9L7 5L11 9" stroke="#22C55E" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                    </g>
+                  </svg>
+                ),
                 title: 'Progress Tracking',
                 description: 'Visual adherence analytics with detailed compliance charts. Monitor trends over weeks and months.'
               },
               {
-                icon: '🔔',
+                icon: (
+                  <svg className="w-12 h-12 text-[#2F5B8C]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Notification Bell with pulse */}
+                    <g>
+                      {/* Bell shape */}
+                      <path d="M12 2C10.3 2 9 3.3 9 5H15C15 3.3 13.7 2 12 2Z" fill="currentColor" opacity="0.3"/>
+                      <path d="M19 9C19 14 21 16 21 16H3C3 16 5 14 5 9C5 6.24 6.5 4 9 3.5V2C9 1.45 9.45 1 10 1C10.55 1 11 1.45 11 2V3.5C13.5 4 15 6.24 15 9V14H19V9Z" fill="currentColor"/>
+                      <circle cx="12" cy="20" r="1" fill="currentColor"/>
+                      <path d="M10.5 19H13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      
+                      {/* Pulse circles indicating alert */}
+                      <circle cx="12" cy="9" r="3" fill="#FF6B6B" opacity="0.8"/>
+                      <circle cx="12" cy="9" r="5" fill="none" stroke="#FF6B6B" strokeWidth="1" opacity="0.5"/>
+                      <circle cx="12" cy="9" r="7" fill="none" stroke="#FF6B6B" strokeWidth="0.5" opacity="0.3"/>
+                    </g>
+                  </svg>
+                ),
                 title: 'Caregiver Alerts',
                 description: 'Real-time notifications when doses are missed. Immediate alerts for caregivers and healthcare providers.'
               }
@@ -194,7 +248,7 @@ export default function Landing() {
                 key={idx}
                 className="p-8 bg-[#EAEFF5] rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 hover:border-[#3E6FA3] group"
               >
-                <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                <div className="mb-4 group-hover:scale-110 transition-transform duration-300 inline-block p-3 bg-white rounded-lg">
                   {feature.icon}
                 </div>
                 <h3 className="text-xl font-bold text-[#2F5B8C] mb-3">
