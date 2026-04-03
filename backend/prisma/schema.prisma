@@ -1,0 +1,348 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+//  ENUMS
+// ─────────────────────────────────────────────
+
+enum Role {
+  PATIENT
+  CAREGIVER
+  DOCTOR
+  ADMIN
+}
+
+enum FrequencyType {
+  DAILY
+  TWICE_DAILY
+  THREE_TIMES_DAILY
+  FOUR_TIMES_DAILY
+  WEEKLY
+  CUSTOM
+}
+
+enum DoseStatus {
+  PENDING
+  TAKEN
+  MISSED
+  LATE
+  SKIPPED
+}
+
+enum NotificationType {
+  DOSE_REMINDER
+  MISSED_DOSE
+  CAREGIVER_ALERT
+  WEEKLY_REPORT
+  STREAK_MILESTONE
+}
+
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  IN_APP
+}
+
+enum AlertStatus {
+  UNREAD
+  READ
+  RESOLVED
+}
+
+// ─────────────────────────────────────────────
+//  USER & AUTH
+// ─────────────────────────────────────────────
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  passwordHash     String
+  role             Role      @default(PATIENT)
+  firstName        String
+  lastName         String
+  phone            String?
+  fcmToken         String?   // Firebase push notification token
+  isEmailVerified  Boolean   @default(false)
+  emailVerifyToken String?
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  profile            Profile?
+  refreshTokens      RefreshToken[]
+  medications        Medication[]         // medications owned by this patient
+  doseSchedules      DoseSchedule[]
+  doseLogs           DoseLog[]
+  notifications      Notification[]
+  // Caregiver relations
+  caregiverLinks     CaregiverLink[]      @relation("CaregiverLinks")
+  patientLinks       CaregiverLink[]      @relation("PatientLinks")
+  caregiverAlerts    CaregiverAlert[]     @relation("CaregiverAlerts")
+  weeklyReports      WeeklyReport[]
+
+  @@map("users")
+}
+
+model Profile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  dateOfBirth   DateTime?
+  gender        String?
+  bloodGroup    String?
+  allergies     String[]
+  conditions    String[]   // medical conditions
+  avatarUrl     String?
+  timezone      String    @default("UTC")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────
+//  CAREGIVER <-> PATIENT LINKING
+// ─────────────────────────────────────────────
+
+model CaregiverLink {
+  id          String   @id @default(uuid())
+  caregiverId String
+  patientId   String
+  isAccepted  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  caregiver User @relation("CaregiverLinks", fields: [caregiverId], references: [id], onDelete: Cascade)
+  patient   User @relation("PatientLinks",   fields: [patientId],   references: [id], onDelete: Cascade)
+
+  @@unique([caregiverId, patientId])
+  @@map("caregiver_links")
+}
+
+// ─────────────────────────────────────────────
+//  MEDICATIONS
+// ─────────────────────────────────────────────
+
+model Medication {
+  id            String        @id @default(uuid())
+  userId        String
+  name          String
+  brandName     String?
+  dosage        String         // e.g., "500mg", "1 tablet"
+  unit          String        @default("mg")
+  frequency     FrequencyType
+  customDays    Int[]          // for CUSTOM frequency: days of week [0-6]
+  times         String[]       // e.g., ["08:00", "14:00", "20:00"]
+  startDate     DateTime
+  endDate       DateTime?
+  instructions  String?        // e.g., "Take after meal"
+  refillDate    DateTime?
+  totalQuantity Int?
+  remainingQty  Int?
+  isActive      Boolean       @default(true)
+  color         String?        // for UI color coding
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doseSchedules DoseSchedule[]
+  doseLogs      DoseLog[]
+
+  @@map("medications")
+}
+
+// ─────────────────────────────────────────────
+//  DOSE SCHEDULES (generated upcoming doses)
+// ─────────────────────────────────────────────
+
+model DoseSchedule {
+  id            String     @id @default(uuid())
+  userId        String
+  medicationId  String
+  scheduledAt   DateTime   // exact date+time the dose is scheduled
+  status        DoseStatus @default(PENDING)
+  windowStart   DateTime   // reminder window open
+  windowEnd     DateTime   // missed if not taken by this time
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medication Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  doseLog    DoseLog?
+
+  @@index([userId, scheduledAt])
+  @@index([status, windowEnd])
+  @@map("dose_schedules")
+}
+
+// ─────────────────────────────────────────────
+//  DOSE LOGS (actual check-ins)
+// ─────────────────────────────────────────────
+
+model DoseLog {
+  id             String     @id @default(uuid())
+  userId         String
+  medicationId   String
+  doseScheduleId String?    @unique
+  takenAt        DateTime   @default(now())
+  status         DoseStatus // TAKEN, LATE, SKIPPED
+  minutesLate    Int        @default(0)
+  notes          String?
+  createdAt      DateTime   @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medication   Medication    @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+  doseSchedule DoseSchedule? @relation(fields: [doseScheduleId], references: [id])
+
+  @@index([userId, takenAt])
+  @@map("dose_logs")
+}
+
+// ─────────────────────────────────────────────
+//  ADHERENCE STATS (cached per day)
+// ─────────────────────────────────────────────
+
+model AdherenceStat {
+  id              String   @id @default(uuid())
+  userId          String
+  date            DateTime // date only (stored as start-of-day UTC)
+  scheduled       Int      @default(0)
+  taken           Int      @default(0)
+  missed          Int      @default(0)
+  late            Int      @default(0)
+  skipped         Int      @default(0)
+  adherenceScore  Float    @default(0) // (taken+late)/scheduled * 100
+  streakDay       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("adherence_stats")
+}
+
+// ─────────────────────────────────────────────
+//  STREAK TRACKING
+// ─────────────────────────────────────────────
+
+model Streak {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  currentStreak Int      @default(0)
+  longestStreak Int      @default(0)
+  lastActiveDay DateTime?
+  updatedAt     DateTime @updatedAt
+
+  @@map("streaks")
+}
+
+// ─────────────────────────────────────────────
+//  NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id        String              @id @default(uuid())
+  userId    String
+  type      NotificationType
+  channel   NotificationChannel
+  title     String
+  body      String
+  data      Json?               // extra payload
+  isRead    Boolean             @default(false)
+  sentAt    DateTime?
+  createdAt DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────
+//  CAREGIVER ALERTS
+// ─────────────────────────────────────────────
+
+model CaregiverAlert {
+  id          String      @id @default(uuid())
+  caregiverId String
+  patientId   String
+  type        String      // "MISSED_DOSE", "LOW_ADHERENCE", etc.
+  message     String
+  data        Json?
+  status      AlertStatus @default(UNREAD)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  caregiver User @relation("CaregiverAlerts", fields: [caregiverId], references: [id], onDelete: Cascade)
+
+  @@index([caregiverId, status])
+  @@map("caregiver_alerts")
+}
+
+// ─────────────────────────────────────────────
+//  WEEKLY REPORTS
+// ─────────────────────────────────────────────
+
+model WeeklyReport {
+  id             String   @id @default(uuid())
+  userId         String
+  weekStartDate  DateTime
+  weekEndDate    DateTime
+  totalScheduled Int
+  totalTaken     Int
+  totalMissed    Int
+  totalLate      Int
+  adherenceScore Float
+  bestDay        String?
+  worstDay       String?
+  reportData     Json?    // full breakdown per medication
+  sentAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStartDate])
+  @@map("weekly_reports")
+}
+
+// ─────────────────────────────────────────────
+//  DEVICE TOKENS (push notifications)
+// ─────────────────────────────────────────────
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  platform  String   // "android", "ios", "web"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("device_tokens")
+}
