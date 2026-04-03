@@ -178,7 +178,7 @@ export default function Adherence() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 text-center transition-all duration-300 hover:shadow-lg">
             <div className="flex justify-center mb-4">
-              <CircleProgress percentage={adherenceRate} size="sm" />
+              <CircleProgress percentage={adherenceRate} size={100} />
             </div>
             <p className="text-gray-600 text-sm font-medium">Overall Adherence</p>
             <p className="text-3xl font-bold text-[#2F5B8C] mt-3">{adherenceRate}%</p>
