@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Sun, Clock, Moon, Link } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Sun, Clock, Moon, AlertCircle, Trash2 } from 'lucide-react'
+import { useNavigate, Link } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout'
 import { api } from '../services/api'
 import Notification from '../components/Notification'
@@ -11,6 +11,7 @@ export default function Schedule() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [notification, setNotification] = useState(null)
+  const [deleteModal, setDeleteModal] = useState({ show: false, id: null, name: null, deleting: false })
 
   // Fetch medications on mount
   useEffect(() => {
@@ -97,20 +98,32 @@ export default function Schedule() {
     return { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-300' }
   }
 
-  const handleDelete = async (id, name) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return
+  const handleDelete = (id, name) => {
+    setDeleteModal({ show: true, id, name, deleting: false })
+  }
+
+  const confirmDelete = async () => {
+    setDeleteModal(prev => ({ ...prev, deleting: true }))
     
     try {
-      const result = await api.deleteMedication(id)
+      const result = await api.deleteMedication(deleteModal.id)
       if (result.success) {
-        setNotification({ message: 'Medication deleted successfully', type: 'success' })
-        fetchMedications()
+        // Remove from state instead of refetching
+        setMedications(prev => prev.filter(med => med.id !== deleteModal.id))
+        setNotification({ message: `"${deleteModal.name}" deleted successfully`, type: 'success' })
+        setDeleteModal({ show: false, id: null, name: null, deleting: false })
       } else {
         setNotification({ message: result.message || 'Failed to delete', type: 'error' })
+        setDeleteModal(prev => ({ ...prev, deleting: false }))
       }
     } catch (err) {
       setNotification({ message: 'Network error', type: 'error' })
+      setDeleteModal(prev => ({ ...prev, deleting: false }))
     }
+  }
+
+  const cancelDelete = () => {
+    setDeleteModal({ show: false, id: null, name: null, deleting: false })
   }
 
   const TimeSection = ({ title, icon: Icon, medications: meds, timeRange }) => (
@@ -291,6 +304,58 @@ export default function Schedule() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.show && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in slide-in-from-bottom-4">
+            {/* Icon */}
+            <div className="flex justify-center mb-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertCircle className="text-red-600" size={24} />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-center text-xl font-bold text-gray-900 mb-2">
+              Delete Medication?
+            </h3>
+
+            {/* Message */}
+            <p className="text-center text-gray-600 mb-6">
+              Are you sure you want to delete <span className="font-semibold text-gray-900">"{deleteModal.name}"</span>? This action cannot be undone.
+            </p>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={cancelDelete}
+                disabled={deleteModal.deleting}
+                className="flex-1 px-4 py-3 rounded-lg border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteModal.deleting}
+                className="flex-1 px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteModal.deleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={18} />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   )
 }

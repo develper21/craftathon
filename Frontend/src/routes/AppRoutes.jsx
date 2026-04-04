@@ -8,10 +8,12 @@ import VerifyEmail from '../pages/VerifyEmail'
 import ForgotPassword from '../pages/ForgotPassword'
 import ResetPassword from '../pages/ResetPassword'
 import PatientDashboard from '../pages/PatientDashboard'
+import MedicationHistory from '../pages/MedicationHistory'
 import AddMedication from '../pages/AddMedication'
 import EditMedication from '../pages/EditMedication'
 import Schedule from '../pages/Schedule'
 import Adherence from '../pages/Adherence'
+import AdherenceReport from '../pages/AdherenceReport'
 import Profile from '../pages/Profile'
 import Notifications from '../pages/Notifications'
 import PatientDetail from '../pages/PatientDetail'
@@ -82,6 +84,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/medication-history"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <MedicationHistory />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/add-medication"
         element={
           <ProtectedRoute requiredRole="patient">
@@ -110,6 +120,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="patient">
             <Adherence />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/adherence-report"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <AdherenceReport />
           </ProtectedRoute>
         }
       />

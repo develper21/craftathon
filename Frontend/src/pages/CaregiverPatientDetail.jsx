@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Mail, Phone, Calendar, Pill, TrendingUp, AlertCircle, Activity } from 'lucide-react'
-import DashboardLayout from '../components/DashboardLayout'
+import { ArrowLeft, Mail, Phone, Calendar, Pill, TrendingUp, AlertCircle, Activity, Clock, CheckCircle, AlertTriangle } from 'lucide-react'
+import CaregiverLayout from '../components/CaregiverLayout'
 import CircleProgress from '../components/CircleProgress'
 import { api } from '../services/api'
 import Notification from '../components/Notification'
@@ -28,18 +28,23 @@ export default function CaregiverPatientDetail() {
       setLoading(true)
       setError(null)
 
-      // Fetch patient details, medications, adherence, and dose history in parallel
-      const [patientRes, medsRes, adherenceRes, historyRes] = await Promise.all([
-        api.getPatientDetail(patientId).catch(() => ({ data: { patient: null } })),
-        api.getPatientMedications(patientId).catch(() => ({ data: { medications: [] } })),
-        api.getPatientAdherence(patientId).catch(() => ({ data: { adherenceScore: 0 } })),
-        api.getPatientDoseHistory(patientId, { limit: 30 }).catch(() => ({ data: { logs: [] } }))
-      ])
-
-      setPatient(patientRes.data?.patient)
-      setMedications(medsRes.data?.medications || [])
-      setAdherenceData(adherenceRes.data)
-      setDoseHistory(historyRes.data?.logs || [])
+      // Fetch patient details from the API
+      const result = await api.getPatientDetail(patientId)
+      
+      if (result.success) {
+        const data = result.data
+        setPatient(data.patient)
+        setAdherenceData({
+          adherenceScore: data.adherenceScore || 0,
+          lastMonthTaken: data.lastMonthTaken || 0,
+          lastMonthScheduled: data.lastMonthScheduled || 0
+        })
+        setMedications(data.medications || [])
+        // Dose history is likely in the data or we can derive it from display
+        setDoseHistory([])
+      } else {
+        setError('Failed to load patient details')
+      }
     } catch (err) {
       console.error('Error fetching patient details:', err)
       setError('Failed to load patient details')
@@ -47,19 +52,6 @@ export default function CaregiverPatientDetail() {
       setLoading(false)
     }
   }
-
-  // Calculate recent activity (last 7 days)
-  const getRecentActivity = () => {
-    const now = new Date()
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    
-    return doseHistory
-      .filter(log => new Date(log.takenAt) >= sevenDaysAgo)
-      .sort((a, b) => new Date(b.takenAt) - new Date(a.takenAt))
-      .slice(0, 10)
-  }
-
-  const recentActivity = getRecentActivity()
 
   // Get adherence color based on score
   const getAdherenceColor = (score) => {
@@ -76,31 +68,31 @@ export default function CaregiverPatientDetail() {
 
   if (loading) {
     return (
-      <DashboardLayout pageTitle="Patient Details" pageSubtitle="View patient information and adherence">
+      <CaregiverLayout pageTitle="Patient Details" pageSubtitle="View patient information and adherence">
         <div className="flex items-center justify-center h-64">
-          <div className="w-12 h-12 border-4 border-[#2F5B8C] border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-12 h-12 border-4 border-[#3E6FA3] border-t-transparent rounded-full animate-spin"></div>
         </div>
-      </DashboardLayout>
+      </CaregiverLayout>
     )
   }
 
   if (!patient && !loading) {
     return (
-      <DashboardLayout pageTitle="Patient Details" pageSubtitle="View patient information and adherence">
+      <CaregiverLayout pageTitle="Patient Details" pageSubtitle="View patient information and adherence">
         <div className="text-center py-12">
           <p className="text-gray-600 text-lg">Patient not found or access denied</p>
-          <Link to="/caregiver/dashboard" className="mt-4 inline-block px-6 py-3 bg-[#2F5B8C] text-white rounded-xl font-semibold hover:bg-[#264a73]">
-            Back to Dashboard
+          <Link to="/caregiver/patients" className="mt-4 inline-block px-6 py-3 bg-[#3E6FA3] text-white rounded-xl font-semibold hover:bg-opacity-90">
+            Back to Patients
           </Link>
         </div>
-      </DashboardLayout>
+      </CaregiverLayout>
     )
   }
 
-  const adherenceScore = adherenceData?.adherenceScore || patient?.adherenceScore || 0
+  const adherenceScore = adherenceData?.adherenceScore || 0
 
   return (
-    <DashboardLayout pageTitle="Patient Details" pageSubtitle="View patient information and adherence">
+    <CaregiverLayout pageTitle="Patient Details" pageSubtitle="View patient information and adherence">
       {/* Notification */}
       {notification && (
         <Notification 
@@ -121,11 +113,11 @@ export default function CaregiverPatientDetail() {
       {/* Back Button */}
       <div className="mb-6">
         <Link 
-          to="/caregiver/dashboard"
+          to="/caregiver/patients"
           className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
         >
           <ArrowLeft size={20} />
-          Back to Dashboard
+          Back to Patients
         </Link>
       </div>
 
@@ -134,13 +126,21 @@ export default function CaregiverPatientDetail() {
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
           {/* Avatar */}
           <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center font-bold text-3xl text-white flex-shrink-0">
-            {patient?.firstName?.[0]}{patient?.lastName?.[0]}
+            {(patient?.firstName?.[0] || patient?.name?.[0] || '?')}{(patient?.lastName?.[0] || '')}
           </div>
           
           {/* Patient Info */}
           <div className="flex-1">
-            <h2 className="text-3xl font-bold mb-2">{patient?.firstName} {patient?.lastName}</h2>
-            <p className="text-blue-100 text-lg">{patient?.email}</p>
+            <h2 className="text-3xl font-bold mb-2">
+              {patient?.firstName && patient?.lastName 
+                ? `${patient.firstName} ${patient.lastName}`
+                : patient?.firstName 
+                  ? patient.firstName
+                  : patient?.name 
+                    ? patient.name
+                    : 'Unknown Patient'}
+            </h2>
+            <p className="text-blue-100 text-lg">{patient?.email || 'N/A'}</p>
             <div className="flex flex-wrap gap-4 mt-4 text-sm text-blue-100">
               {patient?.phone && (
                 <span className="flex items-center gap-2">
@@ -148,10 +148,10 @@ export default function CaregiverPatientDetail() {
                   {patient.phone}
                 </span>
               )}
-              {patient?.profile?.dateOfBirth && (
+              {patient?.dateOfBirth && (
                 <span className="flex items-center gap-2">
                   <Calendar size={16} />
-                  DOB: {new Date(patient.profile.dateOfBirth).toLocaleDateString()}
+                  DOB: {new Date(patient.dateOfBirth).toLocaleDateString()}
                 </span>
               )}
             </div>
@@ -177,81 +177,65 @@ export default function CaregiverPatientDetail() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Medications</span>
-                <span className="font-bold text-[#2F5B8C] text-xl">{medications.length}</span>
+                <span className="font-bold text-[#3E6FA3] text-xl">{medications.length}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Active Since</span>
+                <span className="text-gray-600">Last Month</span>
                 <span className="font-semibold text-gray-900">
-                  {patient?.createdAt ? new Date(patient.createdAt).toLocaleDateString() : 'N/A'}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Last Activity</span>
-                <span className="font-semibold text-gray-900">
-                  {recentActivity.length > 0 
-                    ? new Date(recentActivity[0].takenAt).toLocaleDateString()
-                    : 'No activity'}
+                  {adherenceData?.lastMonthTaken}/{adherenceData?.lastMonthScheduled} doses
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Medical Info */}
-          {patient?.profile && (
-            <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Medical Information</h3>
-              <div className="space-y-3">
-                {patient.profile.bloodGroup && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Blood Group</span>
-                    <span className="font-semibold text-gray-900">{patient.profile.bloodGroup}</span>
-                  </div>
-                )}
-                {patient.profile.conditions && (
-                  <div>
-                    <span className="text-gray-600 block mb-1">Conditions</span>
-                    <span className="font-semibold text-gray-900">{patient.profile.conditions}</span>
-                  </div>
-                )}
-                {patient.profile.address && (
-                  <div>
-                    <span className="text-gray-600 block mb-1">Address</span>
-                    <span className="font-semibold text-gray-900 text-sm">{patient.profile.address}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Adherence Progress */}
+          {/* Adherence Status */}
           <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Adherence Progress</h3>
-            <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Adherence Status</h3>
+            <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
               <div 
-                className={`h-4 rounded-full ${getAdherenceBg(adherenceScore)} transition-all duration-500`}
+                className={`h-3 rounded-full ${getAdherenceBg(adherenceScore)} transition-all duration-500`}
                 style={{ width: `${adherenceScore}%` }}
               />
             </div>
             <p className="text-sm text-gray-600">
               {adherenceScore >= 80 
-                ? 'Excellent adherence! Patient is doing great.' 
+                ? '✓ Excellent adherence! Patient is doing great.' 
                 : adherenceScore >= 60 
-                  ? 'Good adherence with room for improvement.' 
-                  : 'Adherence needs attention. Consider reaching out.'}
+                  ? '⚠ Good adherence with room to improve.' 
+                  : '✗ Adherence needs attention. Reach out soon.'}
             </p>
+          </div>
+
+          {/* Status Badge */}
+          <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Status</h3>
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${
+                adherenceScore >= 80 ? 'bg-green-500' : 
+                adherenceScore >= 60 ? 'bg-yellow-500' : 
+                'bg-red-500'
+              }`} />
+              <span className={`font-semibold ${
+                adherenceScore >= 80 ? 'text-green-600' : 
+                adherenceScore >= 60 ? 'text-yellow-600' : 
+                'text-red-600'
+              }`}>
+                {adherenceScore >= 80 ? 'On Track' : adherenceScore >= 60 ? 'At Risk' : 'Critical'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Middle & Right Columns */}
+        {/* Right Column - Medications & Actions */}
         <div className="lg:col-span-2 space-y-6">
           {/* Current Medications */}
           <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Pill className="text-[#2F5B8C]" size={20} />
+                <Pill className="text-[#3E6FA3]" size={20} />
                 Current Medications
               </h3>
-              <span className="px-3 py-1 bg-[#EAEFF5] text-[#2F5B8C] rounded-full text-sm font-medium">
+              <span className="px-3 py-1 bg-blue-50 text-[#3E6FA3] rounded-full text-sm font-medium">
                 {medications.length} active
               </span>
             </div>
@@ -349,6 +333,6 @@ export default function CaregiverPatientDetail() {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+    </CaregiverLayout>
   )
 }

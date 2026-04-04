@@ -70,12 +70,14 @@ export default function CaregiverLayout() {
         {/* User Profile Section */}
         <div className="p-4">
           <div className="flex items-center gap-3 p-3 rounded-lg bg-white/5 mb-3 hover:bg-white/10 transition-colors">
-            <div className="w-10 h-10 rounded-full bg-[#14B8A6] flex items-center justify-center font-bold text-sm text-white shadow-md">
-              {user?.name?.charAt(0).toUpperCase() || 'D'}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2F5B8C] to-[#3E6FA3] flex items-center justify-center font-bold text-sm text-white shadow-md">
+              {(user?.name || user?.firstName)?.charAt(0).toUpperCase() || 'C'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate text-white">{user?.name || 'Doctor'}</p>
-              <p className="text-xs text-teal-200 truncate">{user?.email || 'doctor@example.com'}</p>
+              <p className="text-sm font-semibold truncate text-white">
+                {user?.name || user?.firstName || 'Caregiver'}
+              </p>
+              <p className="text-xs text-teal-200 truncate">{user?.email || 'caregiver@example.com'}</p>
             </div>
           </div>
           <button
@@ -93,7 +95,7 @@ export default function CaregiverLayout() {
         {/* Topbar */}
         <div className="bg-white border-b border-gray-200 px-8 py-5 flex items-center justify-between shadow-sm sticky top-0 z-10">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Welcome back, {user?.name || 'Caregiver'}</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Welcome back, {user?.name || user?.firstName || 'Caregiver'}</h2>
             <p className="text-sm text-gray-600">Manage your patients and monitor their adherence</p>
           </div>
           <div className="flex items-center gap-6">
@@ -111,14 +113,14 @@ export default function CaregiverLayout() {
             {/* User Info */}
             <div className="flex items-center gap-3">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{user?.name || 'Caregiver'}</p>
+                <p className="text-sm font-medium text-gray-900">{user?.name || user?.firstName || 'Caregiver'}</p>
                 <p className="text-xs text-gray-600">Caregiver</p>
               </div>
               <button
                 onClick={() => navigate('/caregiver/profile')}
-                className="w-10 h-10 rounded-full bg-[#14B8A6] text-white flex items-center justify-center font-semibold hover:opacity-90 transition-all duration-300 hover:scale-105 cursor-pointer text-sm"
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2F5B8C] to-[#3E6FA3] text-white flex items-center justify-center font-semibold hover:opacity-90 transition-all duration-300 hover:scale-105 cursor-pointer text-sm"
               >
-                {user?.name?.charAt(0).toUpperCase() || 'C'}
+                {(user?.name || user?.firstName)?.charAt(0).toUpperCase() || 'C'}
               </button>
             </div>
           </div>

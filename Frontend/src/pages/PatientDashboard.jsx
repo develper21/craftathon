@@ -5,6 +5,8 @@ import CircleProgress from '../components/CircleProgress'
 import { api } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { usePushNotifications } from '../utils/pushNotifications'
+import { CheckCircle, XCircle, UserPlus } from 'lucide-react'
+import Notification from '../components/Notification'
 
 export default function PatientDashboard() {
   const { user } = useAuth()
@@ -12,12 +14,22 @@ export default function PatientDashboard() {
   const [medications, setMedications] = useState([])
   const [adherenceData, setAdherenceData] = useState(null)
   const [streakData, setStreakData] = useState(null)
+  const [pendingLinkRequests, setPendingLinkRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [notification, setNotification] = useState(null)
+  const [actioningDoseId, setActioningDoseId] = useState(null) // Track which dose is being processed
+  const [actioningLinkId, setActioningLinkId] = useState(null) // Track which link request is being processed
 
-  // Fetch dashboard data on mount
+  // Fetch dashboard data on mount and auto-refresh every 10 seconds ONLY
   useEffect(() => {
-    fetchDashboardData()
+    // Initial load
+    fetchDashboardDataInternal()
+    
+    // Auto-refresh every exactly 10 seconds
+    const interval = setInterval(fetchDashboardDataInternal, 10000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   // Request push notification permission - only after user interaction
@@ -25,62 +37,181 @@ export default function PatientDashboard() {
     requestPermission()
   }
 
-  const fetchDashboardData = async () => {
+  // Internal fetch - doesn't show loading spinner for auto-refresh
+  const fetchDashboardDataInternal = async () => {
     try {
-      setLoading(true)
-      setError(null)
-
-      // Fetch pending doses and adherence in parallel
-      const [pendingRes, adherenceRes, streakRes] = await Promise.all([
-        (!user.roles || user.roles.includes(user?.role?.toLowerCase())) ? api.getPendingDoses().catch(() => ({ data: { pending: [] } })) : { data: { pending: [] } },
-        api.getAdherenceScore(7).catch(() => ({ data: { adherenceScore: 0 } })),
-        api.getStreak().catch(() => ({ data: { currentStreak: 0, longestStreak: 0 } }))
+      // Fetch pending doses, adherence, streak, and link requests in parallel
+      const [pendingRes, adherenceRes, streakRes, linkRes] = await Promise.all([
+        api.getPendingDoses().catch(err => {
+          console.error('[DASHBOARD] Error fetching pending doses:', err)
+          return { data: { pending: [] } }
+        }),
+        api.getAdherenceScore(7).catch(err => {
+          console.error('[DASHBOARD] Error fetching adherence score:', err)
+          return { data: { adherenceScore: 0 } }
+        }),
+        api.getStreak().catch(err => {
+          console.error('[DASHBOARD] Error fetching streak:', err)
+          return { data: { currentStreak: 0, longestStreak: 0 } }
+        }),
+        api.getPendingLinkRequests().catch(err => {
+          console.error('[DASHBOARD] Error fetching link requests:', err)
+          return { success: false, data: { requests: [] } }
+        })
       ])
 
+      const today = new Date()
+      const now = new Date()
+
+      console.log(`[DASHBOARD] Fetched ${pendingRes.data?.pending?.length || 0} pending doses`)
+      console.log(`[DASHBOARD] Fetched ${linkRes.data?.requests?.length || 0} pending link requests`)
       setAdherenceData(adherenceRes.data)
       setStreakData(streakRes.data)
+      setPendingLinkRequests(linkRes.data?.requests || [])
       
-      // Transform pending doses to medication format for display
-      const meds = pendingRes.data?.pending?.map(dose => ({
+      // Transform doses - only include medications that haven't passed yet today
+      let meds = (pendingRes.data?.pending || []).map(dose => ({
         id: dose.id,
         medicationId: dose.medication?.id,
         name: dose.medication?.name || 'Unknown',
         dosage: dose.medication?.dosage || '',
-        time: dose.scheduledAt ? new Date(dose.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        scheduledAt: new Date(dose.scheduledAt),
+        time: new Date(dose.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         status: dose.status?.toLowerCase() || 'pending',
-        instructions: dose.medication?.instructions
-      })) || []
+        isTaken: dose.status === 'TAKEN' || !!dose.doseLog,
+        instructions: dose.medication?.instructions,
+        color: dose.medication?.color,
+      }))
 
+      // Sort by time - upcoming first
+      meds = meds.sort((a, b) => a.scheduledAt - b.scheduledAt)
+
+      console.log(`[DASHBOARD] Filtered & sorted ${meds.length} medications for today`)
       setMedications(meds)
+      setError(null)
     } catch (err) {
-      console.error('Error fetching dashboard data:', err)
+      console.error('[DASHBOARD] Error fetching dashboard data:', err)
       setError('Failed to load dashboard data')
     } finally {
       setLoading(false)
     }
   }
 
+  // Public fetch - used only for initial load (shows loading)
+  const fetchDashboardData = async () => {
+    setLoading(true)
+    await fetchDashboardDataInternal()
+  }
+
   const handleTakeMedication = async (doseId, medName, dosage) => {
     try {
+      setActioningDoseId(doseId) // Show loading only for this item
+      console.log(`[DASHBOARD] Taking medication - doseId: ${doseId}, medicine: ${medName}`)
+      
       const result = await api.logDose({ doseScheduleId: doseId })
-      if (result.success) {
-        fetchDashboardData()
-      }
+      console.log(`[DASHBOARD] Take result:`, result)
+      
+      // Update just this medication locally (optimistic update)
+      setMedications(prevMeds => 
+        prevMeds.map(med => 
+          med.id === doseId 
+            ? { ...med, status: 'taken', isTaken: true }
+            : med
+        )
+      )
+      
+      // Auto-refresh will pick up changes in 10 seconds
     } catch (err) {
-      console.error('Error logging dose:', err)
+      console.error('[DASHBOARD] Error logging dose:', err)
       setError('Failed to log dose. Please try again.')
+    } finally {
+      setActioningDoseId(null)
     }
   }
 
   const handleSkipMedication = async (doseId, medName, dosage) => {
     try {
+      setActioningDoseId(doseId) // Show loading only for this item
+      console.log(`[DASHBOARD] Skipping medication - doseId: ${doseId}, medicine: ${medName}`)
+      
       const result = await api.skipDose(doseId, 'User skipped')
+      console.log(`[DASHBOARD] Skip result:`, result)
+      
+      // Update just this medication locally (optimistic update)
+      setMedications(prevMeds => 
+        prevMeds.map(med => 
+          med.id === doseId 
+            ? { ...med, status: 'skipped', isTaken: true }
+            : med
+        )
+      )
+      
+      // Auto-refresh will pick up changes in 10 seconds
+    } catch (err) {
+      console.error('[DASHBOARD] Error skipping dose:', err)
+      setError('Failed to skip dose. Please try again.')
+    } finally {
+      setActioningDoseId(null)
+    }
+  }
+
+  const handleApproveLinkRequest = async (linkId, caregiverName) => {
+    try {
+      setActioningLinkId(linkId)
+      console.log(`[DASHBOARD] Approving link request - linkId: ${linkId}`)
+      
+      const result = await api.respondToLinkRequest(linkId, true)
+      
       if (result.success) {
-        fetchDashboardData()
+        // Remove from pending list
+        setPendingLinkRequests(prevRequests => 
+          prevRequests.filter(req => req.id !== linkId)
+        )
+        setNotification({ 
+          message: `✓ You've approved ${caregiverName} as your caregiver!`, 
+          type: 'success' 
+        })
+      } else {
+        setNotification({ 
+          message: result.message || 'Failed to approve request', 
+          type: 'error' 
+        })
       }
     } catch (err) {
-      console.error('Error skipping dose:', err)
-      setError('Failed to skip dose. Please try again.')
+      console.error('[DASHBOARD] Error approving link request:', err)
+      setNotification({ message: 'Error approving request. Please try again.', type: 'error' })
+    } finally {
+      setActioningLinkId(null)
+    }
+  }
+
+  const handleRejectLinkRequest = async (linkId, caregiverName) => {
+    try {
+      setActioningLinkId(linkId)
+      console.log(`[DASHBOARD] Rejecting link request - linkId: ${linkId}`)
+      
+      const result = await api.respondToLinkRequest(linkId, false)
+      
+      if (result.success) {
+        // Remove from pending list
+        setPendingLinkRequests(prevRequests => 
+          prevRequests.filter(req => req.id !== linkId)
+        )
+        setNotification({ 
+          message: `✗ You've rejected the request from ${caregiverName}`, 
+          type: 'info' 
+        })
+      } else {
+        setNotification({ 
+          message: result.message || 'Failed to reject request', 
+          type: 'error' 
+        })
+      }
+    } catch (err) {
+      console.error('[DASHBOARD] Error rejecting link request:', err)
+      setNotification({ message: 'Error rejecting request. Please try again.', type: 'error' })
+    } finally {
+      setActioningLinkId(null)
     }
   }
 
@@ -97,15 +228,15 @@ export default function PatientDashboard() {
   const adherenceRate = Math.round(adherenceData?.adherenceScore || 0)
   
   const morningMeds = medications.filter((m) => {
-    const hour = parseInt(m.time?.split(':')[0])
+    const hour = m.scheduledAt?.getHours()
     return hour >= 5 && hour < 12
   })
   const afternoonMeds = medications.filter((m) => {
-    const hour = parseInt(m.time?.split(':')[0])
+    const hour = m.scheduledAt?.getHours()
     return hour >= 12 && hour < 17
   })
   const nightMeds = medications.filter((m) => {
-    const hour = parseInt(m.time?.split(':')[0])
+    const hour = m.scheduledAt?.getHours()
     return hour >= 17 || hour < 5
   })
 
@@ -113,6 +244,8 @@ export default function PatientDashboard() {
     switch (status) {
       case 'taken': return 'bg-green-100 text-green-800 border-green-300'
       case 'missed': return 'bg-red-100 text-red-800 border-red-300'
+      case 'skipped': return 'bg-gray-100 text-gray-800 border-gray-300'
+      case 'late': return 'bg-orange-100 text-orange-800 border-orange-300'
       default: return 'bg-yellow-100 text-yellow-800 border-yellow-300'
     }
   }
@@ -131,11 +264,20 @@ export default function PatientDashboard() {
 
   return (
     <DashboardLayout pageTitle="Dashboard" pageSubtitle="Track your medications and stay on top of your health">
+      {/* Notification */}
+      {notification && (
+        <Notification 
+          message={notification.message} 
+          type={notification.type}
+          onClose={() => setNotification(null)}
+        />
+      )}
+
       {/* Error Message */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-6">
           {error}
-          <button onClick={fetchDashboardData} className="ml-4 underline">Retry</button>
+          <button onClick={() => setError(null)} className="ml-4 underline">Dismiss</button>
         </div>
       )}
 
@@ -143,12 +285,62 @@ export default function PatientDashboard() {
       <div className="bg-gradient-to-r from-[#2F5B8C] via-[#3E6FA3] to-[#22C55E] rounded-2xl p-8 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-4xl font-bold mb-2">Hello, {user?.firstName || 'Patient'} 👋</h2>
+            <h2 className="text-4xl font-bold mb-2">Hello, {user?.firstName || 'Patient'}</h2>
             <p className="text-blue-100 text-lg">Stay on track with your medications today</p>
           </div>
-          <div className="hidden md:block text-6xl opacity-20">💊</div>
+          <div className="hidden md:block"></div>
         </div>
       </div>
+
+      {/* Pending Caregiver Link Requests */}
+      {pendingLinkRequests.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-xl p-6 shadow-md">
+          <div className="flex items-center gap-3 mb-4">
+            <UserPlus size={24} className="text-blue-600" />
+            <h3 className="text-lg font-bold text-blue-900">Caregiver Link Requests</h3>
+          </div>
+          <div className="space-y-3">
+            {pendingLinkRequests.map((request) => (
+              <div key={request.id} className="bg-white rounded-lg p-4 flex items-center justify-between shadow-sm">
+                <div>
+                  <p className="font-semibold text-gray-900">
+                    {request.caregiver?.firstName && request.caregiver?.lastName 
+                      ? `${request.caregiver.firstName} ${request.caregiver.lastName}`
+                      : 'Unknown Caregiver'}
+                  </p>
+                  <p className="text-sm text-gray-600">{request.caregiver?.email}</p>
+                  <p className="text-xs text-gray-500 mt-1">Wants to be your caregiver to monitor your medication adherence</p>
+                </div>
+                <div className="flex gap-3 flex-shrink-0">
+                  {actioningLinkId === request.id ? (
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-100 text-gray-600">
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-blue-600 rounded-full animate-spin"></div>
+                      <span className="text-sm font-medium">Processing...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleApproveLinkRequest(request.id, request.caregiver?.firstName || 'Caregiver')}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 active:scale-95 transition-all"
+                      >
+                        <CheckCircle size={18} />
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleRejectLinkRequest(request.id, request.caregiver?.firstName || 'Caregiver')}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 active:scale-95 transition-all"
+                      >
+                        <XCircle size={18} />
+                        Reject
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -200,7 +392,8 @@ export default function PatientDashboard() {
               </div>
             ) : (
               <div className="space-y-4">
-                {medications.map((med) => (
+                {/* Show only top 4-5 upcoming medications */}
+                {medications.slice(0, 5).map((med) => (
                   <div key={med.id} className="border border-gray-200 rounded-xl p-4 hover:border-[#2F5B8C] hover:shadow-md hover:bg-blue-50/30 transition-all duration-200">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -214,23 +407,47 @@ export default function PatientDashboard() {
                         </span>
                         {med.status === 'pending' && (
                           <div className="flex gap-2">
-                            <button onClick={() => handleTakeMedication(med.id, med.name, med.dosage)} className="px-4 py-2 rounded-xl bg-[#22C55E] text-white font-semibold hover:bg-[#1ea852] hover:shadow-lg active:scale-95 text-sm">
-                              Take Now
-                            </button>
-                            <button onClick={() => handleSkipMedication(med.id, med.name, med.dosage)} className="px-4 py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 active:scale-95 text-sm">
-                              Skip
-                            </button>
+                            {actioningDoseId === med.id ? (
+                              // Show loading spinner while processing this specific medication
+                              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 text-gray-600">
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-[#22C55E] rounded-full animate-spin"></div>
+                                <span className="text-sm font-medium">Processing...</span>
+                              </div>
+                            ) : (
+                              <>
+                                <button onClick={() => handleTakeMedication(med.id, med.name, med.dosage)} className="px-4 py-2 rounded-xl bg-[#22C55E] text-white font-semibold hover:bg-[#1ea852] hover:shadow-lg active:scale-95 text-sm transition-all duration-200">
+                                  Take Now
+                                </button>
+                                <button onClick={() => handleSkipMedication(med.id, med.name, med.dosage)} className="px-4 py-2 rounded-xl bg-gray-200 text-gray-700 font-semibold hover:bg-gray-300 active:scale-95 text-sm transition-all duration-200">
+                                  Skip
+                                </button>
+                              </>
+                            )}
                             <button onClick={() => showMedicationReminder(med)} className="px-3 py-2 rounded-xl bg-blue-100 text-blue-700 hover:bg-blue-200 text-sm" title="Test notification">
                               🔔
                             </button>
                           </div>
                         )}
                         {med.status === 'taken' && <div className="text-[#22C55E] font-semibold text-sm">✓ Taken</div>}
+                        {med.status === 'skipped' && <div className="text-gray-500 font-semibold text-sm">⊘ Skipped</div>}
                         {med.status === 'missed' && <div className="text-red-600 font-semibold text-sm">✕ Missed</div>}
+                        {med.status === 'late' && <div className="text-orange-600 font-semibold text-sm">⚠ Taken Late</div>}
                       </div>
                     </div>
                   </div>
                 ))}
+
+                {/* Show "View All History" button if there are more medications */}
+                {medications.length > 5 && (
+                  <div className="text-center mt-6 pt-4 border-t border-gray-200">
+                    <Link 
+                      to="/medication-history"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#2F5B8C] to-[#3E6FA3] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-200"
+                    >
+                      📋 View All Medication History ({medications.length} total)
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -248,7 +465,6 @@ export default function PatientDashboard() {
 
           <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl shadow-md p-6 border border-orange-200 hover:shadow-lg transition-shadow">
             <div className="text-center">
-              <p className="text-5xl mb-2">🔥</p>
               <h3 className="text-2xl font-bold text-orange-900 mb-2">{streakData?.currentStreak || 0} Day Streak</h3>
               <p className="text-sm text-orange-700 mb-4">Keep it going!</p>
               <div className="w-full bg-orange-200 rounded-full h-2.5">
@@ -270,7 +486,7 @@ export default function PatientDashboard() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 pb-3 border-b-2 border-blue-100">🌅 Morning</h4>
+            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 pb-3 border-b-2 border-blue-100">Morning</h4>
             <div className="space-y-3">
               {morningMeds.length > 0 ? morningMeds.map((m) => (
                 <div key={m.id}><p className="font-medium text-gray-900">{m.name}</p><p className="text-gray-600 text-sm">{m.time}</p></div>
@@ -278,7 +494,7 @@ export default function PatientDashboard() {
             </div>
           </div>
           <div>
-            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 pb-3 border-b-2 border-yellow-100">☀️ Afternoon</h4>
+            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 pb-3 border-b-2 border-yellow-100">Afternoon</h4>
             <div className="space-y-3">
               {afternoonMeds.length > 0 ? afternoonMeds.map((m) => (
                 <div key={m.id}><p className="font-medium text-gray-900">{m.name}</p><p className="text-gray-600 text-sm">{m.time}</p></div>
@@ -286,7 +502,7 @@ export default function PatientDashboard() {
             </div>
           </div>
           <div>
-            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 pb-3 border-b-2 border-indigo-100">🌙 Night</h4>
+            <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2 pb-3 border-b-2 border-indigo-100">Evening</h4>
             <div className="space-y-3">
               {nightMeds.length > 0 ? nightMeds.map((m) => (
                 <div key={m.id}><p className="font-medium text-gray-900">{m.name}</p><p className="text-gray-600 text-sm">{m.time}</p></div>

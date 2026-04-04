@@ -4,6 +4,9 @@ const ctrl = require("../controllers/report.controller");
 
 router.use(protect);
 
+// GET /api/report/adherence - comprehensive adherence report (last 30 days)
+router.get("/adherence", ctrl.getAdherenceReport);
+
 // GET /api/v1/reports/weekly?weekStart=YYYY-MM-DD
 router.get("/weekly", ctrl.getWeeklyReport);
 

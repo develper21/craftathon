@@ -51,17 +51,84 @@ const getWeekRange = (anyDayInWeek = new Date()) => {
 };
 
 /**
- * Parse a "HH:MM" time string and apply it to a given date
- * @param {Date} date
- * @param {string} timeStr "08:30"
- * @returns {Date}
+ * Parse a "HH:MM" time string and apply it to a given date in user's timezone
+ * @param {Date} date - The date 
+ * @param {string} timeStr - "08:30" format (in user's local timezone)
+ * @param {string} userTimezone - "Asia/Kolkata" 
+ * @returns {Date} - Returns UTC datetime that represents that local time
  */
-const applyTimeToDate = (date, timeStr) => {
+const applyTimeToDate = (date, timeStr, userTimezone = "UTC") => {
     const [hours, minutes] = timeStr.split(":").map(Number);
-    const result = new Date(date);
-    result.setUTCHours(hours, minutes, 0, 0);
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    
+    // STRATEGY: Calculate what UTC time corresponds to the local midnight in user's timezone
+    const testUTC = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+    
+    // Format this UTC midnight AS IF viewing it from the user's timezone
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZone: userTimezone
+    });
+    
+    const parts = formatter.formatToParts(testUTC);
+    const tzHourAtUTCMidnight = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+    const tzMinutesAtUTCMidnight = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+    
+    // This is what hour of the day the user's timezone sees when UTC is at midnight
+    // If user is at UTC+5:30, they see 05:30 when UTC is 00:00
+    // If user is at UTC-5, they see 19:00 (previous day) when UTC is 00:00
+    
+    const logger = require('./logger');
+    logger.debug(`[TIMEZONE DEBUG]`);
+    logger.debug(`  Input: ${timeStr} in ${userTimezone}, Date: ${date.toISOString().split('T')[0]}`);
+    logger.debug(`  Parsed hours=${hours}, minutes=${minutes}`);
+    logger.debug(`  UTC midnight shows as ${String(tzHourAtUTCMidnight).padStart(2, '0')}:${String(tzMinutesAtUTCMidnight).padStart(2, '0')} in ${userTimezone}`);
+    
+    // Calculate UTC time:
+    // Local time = UTC time + timezone_offset
+    // Therefore: UTC time = local time - timezone_offset
+    // 
+    // Example: Asia/Kolkata (UTC+5:30)
+    // - Local 08:38 should be UTC 03:08 (08:38 - 05:30 = 03:08)
+    //
+    // Example: UTC-5 (EST)
+    // - Local 08:38 should be UTC 13:38 (08:38 - (-5:00) = 13:38)
+    
+    let utcHours = hours - tzHourAtUTCMidnight;
+    let utcMinutes = minutes - tzMinutesAtUTCMidnight;
+    
+    logger.debug(`  Before adjustment: utcHours=${utcHours}, utcMinutes=${utcMinutes}`);
+    
+    // Fix negative minutes
+    if (utcMinutes < 0) {
+        utcHours -= 1;
+        utcMinutes += 60;
+    }
+    
+    // Fix negative hours (wraps to previous day)
+    if (utcHours < 0) {
+        utcHours += 24;
+    }
+    
+    // Fix hours >= 24 (wraps to next day)
+    if (utcHours >= 24) {
+        utcHours -= 24;
+    }
+    
+    const result = new Date(Date.UTC(year, month, day, utcHours, utcMinutes, 0, 0));
+    logger.debug(`  Final UTC: ${String(utcHours).padStart(2, '0')}:${String(utcMinutes).padStart(2, '0')} → ${result.toISOString()}`);
+    
     return result;
 };
+
 
 /**
  * Determine if a dose is late (taken after scheduled + 15 min grace)
@@ -89,24 +156,35 @@ const formatDate = (date) => {
  * Generate upcoming dose schedule dates from medication config
  * Returns array of { scheduledAt, windowStart, windowEnd }
  */
-const generateDoseSchedule = (medication, forDate) => {
+const generateDoseSchedule = (medication, forDate, userTimezone = "UTC") => {
     const { times, frequency, customDays } = medication;
     const date = new Date(forDate);
 
     // Check if this medication should be taken today based on frequency
     const dayOfWeek = date.getUTCDay(); // 0=Sun
 
-    if (frequency === "WEEKLY" && !customDays?.includes(dayOfWeek)) {
-        return [];
+    if (frequency === "WEEKLY") {
+        // If no custom days specified, generate for all days
+        if (!customDays || customDays.length === 0) {
+            // Default to all 7 days if not specified
+        } else if (!customDays.includes(dayOfWeek)) {
+            return [];
+        }
     }
-    if (frequency === "CUSTOM" && !customDays?.includes(dayOfWeek)) {
-        return [];
+    
+    if (frequency === "CUSTOM") {
+        // If no custom days specified, generate for all days
+        if (!customDays || customDays.length === 0) {
+            // Default to all 7 days if not specified
+        } else if (!customDays.includes(dayOfWeek)) {
+            return [];
+        }
     }
 
     return (times || []).map((timeStr) => {
-        const scheduledAt = applyTimeToDate(date, timeStr);
-        const windowStart = new Date(scheduledAt.getTime() - 30 * 60000); // 30min before
-        const windowEnd = new Date(scheduledAt.getTime() + 60 * 60000);   // 60min after
+        const scheduledAt = applyTimeToDate(date, timeStr, userTimezone);
+        const windowStart = new Date(scheduledAt.getTime() - 30 * 60000); // 30min before (reminder sent)
+        const windowEnd = new Date(scheduledAt.getTime() + 5 * 60000);    // 5min after (deadline to take)
         return { scheduledAt, windowStart, windowEnd };
     });
 };

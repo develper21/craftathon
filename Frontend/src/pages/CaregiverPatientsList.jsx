@@ -1,198 +1,272 @@
-import { useState } from 'react'
-import { Search, Eye, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Eye, AlertCircle, Plus, Trash2, Mail, TrendingUp } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../services/api'
+import Notification from '../components/Notification'
 
 export default function CaregiverPatientsList() {
+  const navigate = useNavigate()
+  const [patients, setPatients] = useState([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [showLinkForm, setShowLinkForm] = useState(false)
+  const [linkEmail, setLinkEmail] = useState('')
+  const [notification, setNotification] = useState(null)
+  const [isLinking, setIsLinking] = useState(false)
 
-  const patients = [
-    {
-      id: 1,
-      name: 'John Doe',
-      condition: 'Diabetes Type 2',
-      medications: 3,
-      adherence: 75,
-      status: 'warning',
-      lastCheckin: '2 hours ago'
-    },
-    {
-      id: 2,
-      name: 'Emma Johnson',
-      condition: 'Hypertension',
-      medications: 2,
-      adherence: 95,
-      status: 'good',
-      lastCheckin: '30 mins ago'
-    },
-    {
-      id: 3,
-      name: 'Robert Wilson',
-      condition: 'Heart Disease',
-      medications: 4,
-      adherence: 60,
-      status: 'critical',
-      lastCheckin: '4 hours ago'
-    },
-    {
-      id: 4,
-      name: 'Sarah Smith',
-      condition: 'Arthritis',
-      medications: 2,
-      adherence: 88,
-      status: 'good',
-      lastCheckin: '1 hour ago'
-    },
-    {
-      id: 5,
-      name: 'Michael Brown',
-      condition: 'Asthma',
-      medications: 2,
-      adherence: 72,
-      status: 'warning',
-      lastCheckin: '3 hours ago'
-    },
-    {
-      id: 6,
-      name: 'Lisa Anderson',
-      condition: 'Thyroid',
-      medications: 1,
-      adherence: 92,
-      status: 'good',
-      lastCheckin: '45 mins ago'
+  // Fetch patients on mount
+  useEffect(() => {
+    fetchPatients()
+    const interval = setInterval(fetchPatients, 30000) // Refresh every 30 seconds
+    return () => clearInterval(interval)
+  }, [])
+
+  const fetchPatients = async () => {
+    try {
+      setLoading(true)
+      console.log('[CAREGIVER_PATIENTS] Fetching patients...')
+      const result = await api.getMyPatients()
+      console.log('[CAREGIVER_PATIENTS] Result:', result)
+      if (result.success) {
+        const patientData = result.data?.patients || []
+        console.log('[CAREGIVER_PATIENTS] Loaded patients:', patientData)
+        setPatients(patientData)
+      } else {
+        console.error('[CAREGIVER_PATIENTS] API returned success=false:', result.message)
+      }
+    } catch (err) {
+      console.error('[CAREGIVER_PATIENTS] Error fetching patients:', err)
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
-  const filteredPatients = patients.filter((patient) => {
-    const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesFilter = filterStatus === 'all' || patient.status === filterStatus
-    return matchesSearch && matchesFilter
-  })
+  const handleLinkPatient = async (e) => {
+    e.preventDefault()
+
+    if (!linkEmail.trim()) {
+      setNotification({ message: 'Please enter patient email', type: 'error' })
+      return
+    }
+
+    setIsLinking(true)
+    try {
+      const result = await api.sendLinkRequest(linkEmail)
+      if (result.success) {
+        setNotification({ message: 'Link request sent! Waiting for patient approval.', type: 'success' })
+        setLinkEmail('')
+        setShowLinkForm(false)
+        setTimeout(() => fetchPatients(), 1000)
+      } else {
+        setNotification({ message: result.message || 'Failed to link patient', type: 'error' })
+      }
+    } catch (err) {
+      setNotification({ message: 'Error linking patient', type: 'error' })
+    } finally {
+      setIsLinking(false)
+    }
+  }
+
+  const handleUnlinkPatient = async (patientId) => {
+    if (!confirm('Are you sure you want to unlink this patient?')) return
+
+    try {
+      const result = await api.unlinkPatient(patientId)
+      if (result.success) {
+        setNotification({ message: 'Patient unlinked', type: 'success' })
+        setPatients(patients.filter(p => p.linkId !== patientId))
+      }
+    } catch (err) {
+      setNotification({ message: 'Error unlinking patient', type: 'error' })
+    }
+  }
+
+  const getStatus = (adherence) => {
+    if (adherence >= 85) return 'good'
+    if (adherence >= 70) return 'warning'
+    return 'critical'
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
       case 'good':
-        return 'text-green-600 bg-green-50'
+        return { bg: 'bg-green-50', text: 'text-green-700', badge: 'bg-green-100 text-green-700', label: 'Excellent' }
       case 'warning':
-        return 'text-yellow-600 bg-yellow-50'
+        return { bg: 'bg-yellow-50', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-700', label: 'Good' }
       case 'critical':
-        return 'text-red-600 bg-red-50'
+        return { bg: 'bg-red-50', text: 'text-red-700', badge: 'bg-red-100 text-red-700', label: 'Needs Attention' }
       default:
-        return 'text-gray-600 bg-gray-50'
+        return { bg: 'bg-gray-50', text: 'text-gray-700', badge: 'bg-gray-100 text-gray-700', label: 'Unknown' }
     }
   }
 
-  const getAdherenceColor = (value) => {
-    if (value >= 80) return 'bg-[#14B8A6]'
-    if (value >= 60) return 'bg-[#F59E0B]'
-    return 'bg-[#EF4444]'
+  // Use all patients for display
+  const filteredPatients = patients
+
+  if (loading && patients.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500">Loading patients...</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">My Patients</h1>
-        <p className="text-gray-600 mt-2">Monitor and manage your patients</p>
-      </div>
+        {/* Link Patient Form */}
+        {showLinkForm && (
+          <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Link New Patient</h3>
+            <form onSubmit={handleLinkPatient} className="flex gap-3">
+              <input
+                type="email"
+                placeholder="Enter patient email..."
+                value={linkEmail}
+                onChange={(e) => setLinkEmail(e.target.value)}
+                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3E6FA3]"
+              />
+              <button
+                type="submit"
+                disabled={isLinking}
+                className="px-6 py-2 bg-[#3E6FA3] text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50"
+              >
+                {isLinking ? 'Sending...' : 'Send'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLinkForm(false)}
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        )}
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search patients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#14B8A6]"
-          />
+        {/* Action Bar */}
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => setShowLinkForm(!showLinkForm)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#3E6FA3] text-white rounded-lg font-semibold hover:opacity-90"
+          >
+            <Plus size={18} />
+            Link Patient
+          </button>
+          <div className="text-sm text-gray-600">
+            Total: <span className="font-bold text-gray-900">{patients.length}</span>
+          </div>
         </div>
-        <div className="flex gap-2">
-          {['all', 'good', 'warning', 'critical'].map((status) => (
+
+        {/* Patients Display */}
+        {patients.length === 0 ? (
+          <div className="text-center py-16 bg-gray-50 rounded-lg border border-gray-200">
+            <AlertCircle size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Patients Linked</h3>
+            <p className="text-gray-600 mb-4">Send link requests to start monitoring patients</p>
             <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                filterStatus === status
-                  ? status === 'all'
-                    ? 'bg-[#1E3A5F] text-white'
-                    : status === 'good'
-                    ? 'bg-green-100 text-green-700'
-                    : status === 'warning'
-                    ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-red-100 text-red-700'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              onClick={() => setShowLinkForm(true)}
+              className="inline-flex items-center gap-2 px-6 py-2 bg-[#3E6FA3] text-white rounded-lg font-semibold"
             >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
+              <Plus size={18} />
+              Link First Patient
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Patients Table */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Patient Name</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Condition</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Medications</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Adherence</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Last Check-in</th>
-                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-900">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPatients.map((patient) => (
-                <tr key={patient.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                  <td className="px-6 py-4">
-                    <p className="font-medium text-gray-900">{patient.name}</p>
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">{patient.condition}</td>
-                  <td className="px-6 py-4 text-gray-600">{patient.medications} meds</td>
-                  <td className="px-6 py-4">
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-900">{patient.adherence}%</div>
-                      <div className="w-20 h-2 bg-gray-200 rounded-full">
-                        <div
-                          className={`h-full rounded-full ${getAdherenceColor(patient.adherence)}`}
-                          style={{ width: `${patient.adherence}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(patient.status)}`}
-                    >
-                      {patient.status === 'good' ? 'Good' : patient.status === 'warning' ? 'Warning' : 'Critical'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{patient.lastCheckin}</td>
-                  <td className="px-6 py-4 text-center">
-                    <button className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-[#14B8A6] hover:bg-teal-50 transition">
-                      <Eye size={18} />
-                      <span className="text-sm font-medium">View</span>
-                    </button>
-                  </td>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Patient Name</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Last Month</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Adherence</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {filteredPatients.map((p) => {
+                  const status = getStatus(p.adherenceScore || 0)
+                  const statusInfo = getStatusColor(status)
+                  
+                  // Get patient name with proper fallbacks
+                  const patientName = p.patient?.firstName && p.patient?.lastName 
+                    ? `${p.patient.firstName} ${p.patient.lastName}`
+                    : p.patient?.firstName 
+                      ? p.patient.firstName
+                      : p.firstName && p.lastName 
+                        ? `${p.firstName} ${p.lastName}`
+                        : p.firstName 
+                          ? p.firstName
+                          : p.name 
+                            ? p.name
+                            : 'Unknown Patient'
+                  
+                  const patientEmail = p.patient?.email || p.email || 'N/A'
+                  
+                  return (
+                    <tr key={p.linkId} className="border-b border-gray-200 hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-gray-900">
+                          {patientName}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{patientEmail}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {p.lastMonthTaken}/{p.lastMonthScheduled} doses
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${
+                                status === 'good' ? 'bg-green-500' : status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.min(p.adherenceScore || 0, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">{Math.round(p.adherenceScore || 0)}%</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.badge}`}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => navigate(`/caregiver/patient/${p.linkId}`)}
+                            className="p-2 hover:bg-blue-50 rounded text-[#3E6FA3]"
+                            title="View Details"
+                          >
+                            <Eye size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleUnlinkPatient(p.linkId)}
+                            className="p-2 hover:bg-red-50 rounded text-red-600"
+                            title="Unlink"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      {/* Empty State */}
-      {filteredPatients.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-100">
-          <AlertCircle className="mx-auto text-gray-400 mb-3" size={40} />
-          <p className="text-gray-600 font-medium">No patients found</p>
-          <p className="text-gray-500 text-sm mt-1">Try adjusting your search or filters</p>
-        </div>
-      )}
-    </div>
-  )
-}
+        {notification && (
+          <Notification
+            message={notification.message}
+            type={notification.type}
+            onClose={() => setNotification(null)}
+          />
+        )}
+      </div>
+    )
+  }

@@ -57,12 +57,13 @@ export default function AdminSettings() {
   )
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-2">Manage system configuration and preferences</p>
-      </div>
+    <div className="min-h-screen bg-gray-50/50 p-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+          <p className="text-gray-600 mt-2">Manage system configuration and preferences</p>
+        </div>
 
       {/* Save Notification */}
       {saved && (
@@ -267,23 +268,24 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      {/* Save Button */}
-      <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 gap-3 rounded-xl bg-white/90 border border-gray-200 p-3 shadow-lg backdrop-blur md:right-6 md:left-auto">
-        <button
-          onClick={handleCancel}
-          className="px-6 py-3 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition disabled:text-gray-400 disabled:border-gray-200"
-          disabled={!dirty}
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${dirty ? 'bg-[#6366F1] hover:bg-indigo-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-          disabled={!dirty}
-        >
-          <Save size={16} />
-          Save Changes
-        </button>
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-8">
+          <button
+            onClick={handleCancel}
+            className="px-6 py-3 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition disabled:text-gray-400 disabled:border-gray-200"
+            disabled={!dirty}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${dirty ? 'bg-[#6366F1] hover:bg-indigo-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+            disabled={!dirty}
+          >
+            <Save size={16} />
+            Save Changes
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -79,7 +79,7 @@ const updateStreak = async (userId) => {
                     userId,
                     type: "STREAK_MILESTONE",
                     channel: "IN_APP",
-                    title: `🔥 ${currentStreak}-Day Streak!`,
+                    title: `${currentStreak}-Day Streak!`,
                     body: `Amazing! You've taken your medications for ${currentStreak} days in a row. Keep it up!`,
                 },
             });

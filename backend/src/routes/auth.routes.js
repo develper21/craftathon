@@ -11,7 +11,7 @@ router.post("/register",
         body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
         body("firstName").notEmpty().trim().withMessage("First name required"),
         body("lastName").optional().trim(),
-        body("role").optional().isIn(["PATIENT", "CAREGIVER", "DOCTOR"]).withMessage("Invalid role"),
+        body("role").optional().isIn(["PATIENT", "CAREGIVER", "DOCTOR", "ADMIN"]).withMessage("Invalid role"),
     ],
     validate,
     ctrl.register

@@ -4,6 +4,9 @@ const ctrl = require("../controllers/adherence.controller");
 
 router.use(protect);
 
+// GET /api/v1/adherence/report - Full adherence report
+router.get("/report", ctrl.getFullReport);
+
 // GET /api/v1/adherence/score?period=30
 router.get("/score", ctrl.getAdherenceScore);
 

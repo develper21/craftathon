@@ -104,6 +104,36 @@ const emailTemplates = {
       </div>
     `,
     }),
+
+    medicationReminder: (name, medicationName, scheduledTime) => ({
+        subject: `💊 Medication Reminder – Time to take ${medicationName}`,
+        html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;">
+        <h2 style="color:#4F46E5">💊 Medication Reminder</h2>
+        <p>Hi ${name},</p>
+        <p>It's time to take your <strong>${medicationName}</strong> dose!</p>
+        <p style="background:#EFF6FF;border-left:4px solid #4F46E5;padding:12px;border-radius:6px;margin-top:16px;">
+          <strong>Scheduled Time:</strong> ${scheduledTime}
+        </p>
+        <p style="margin-top:16px;color:#6B7280;font-size:14px;">Please take your medication as prescribed. Your adherence matters!</p>
+      </div>
+    `,
+    }),
+
+    patientMissedDose: (name, medicationName, scheduledTime) => ({
+        subject: `⚠️ You Missed Your Medication – ${medicationName}`,
+        html: `
+      <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;">
+        <h2 style="color:#DC2626">⚠️ Missed Dose Alert</h2>
+        <p>Hi ${name},</p>
+        <p>We noticed you missed your <strong>${medicationName}</strong> dose that was scheduled at <strong>${scheduledTime}</strong>.</p>
+        <p style="background:#FEF2F2;border-left:4px solid #DC2626;padding:12px;border-radius:6px;margin-top:16px;">
+          <strong>Why this matters:</strong> Taking your medications on time is important for your health. Try to stick to your schedule.
+        </p>
+        <p style="margin-top:16px;color:#6B7280;font-size:14px;">If you took it later, you can log it in the app. Make sure to take your next dose on time!</p>
+      </div>
+    `,
+    }),
 };
 
 module.exports = { sendEmail, emailTemplates };

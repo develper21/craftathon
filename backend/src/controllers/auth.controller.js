@@ -9,7 +9,7 @@ const { sendSuccess, sendCreated } = require("../utils/apiResponse");
 // ─── Register ─────────────────────────────────────────────────────────────────
 const register = async (req, res, next) => {
     try {
-        const { email, password, firstName, lastName, phone, role } = req.body;
+        const { email, password, firstName, lastName, phone, role, timezone } = req.body;
 
         // Check duplicate
         const exists = await prisma.user.findUnique({ where: { email } });
@@ -21,7 +21,7 @@ const register = async (req, res, next) => {
         // Email verification token
         const emailVerifyToken = crypto.randomBytes(32).toString("hex");
 
-        // Create user + profile
+        // Create user + profile with timezone
         const user = await prisma.user.create({
             data: {
                 email,
@@ -31,7 +31,7 @@ const register = async (req, res, next) => {
                 phone,
                 role: role || "PATIENT",
                 emailVerifyToken,
-                profile: { create: {} },
+                profile: { create: { timezone: timezone || "UTC" } },
             },
             select: { id: true, email: true, firstName: true, lastName: true, role: true, createdAt: true },
         });

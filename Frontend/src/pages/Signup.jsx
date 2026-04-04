@@ -36,12 +36,16 @@ export default function Signup() {
       const firstName = nameParts[0]
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : ''
 
+      // Detect user's timezone
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
       const userData = {
         email,
         password,
         firstName,
         lastName,
-        role: role.toUpperCase()
+        role: role.toUpperCase(),
+        timezone
       }
 
       const result = await register(userData)
@@ -54,7 +58,7 @@ export default function Signup() {
         
         // Show verification link in console for development
         if (result.data?.verifyLink) {
-          console.log('📧 Email Verification Link:', result.data.verifyLink)
+          console.log('Email Verification Link:', result.data.verifyLink)
         }
         
         // Redirect to login immediately with newSignup flag

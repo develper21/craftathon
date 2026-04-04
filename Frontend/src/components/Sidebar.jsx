@@ -48,6 +48,16 @@ export default function Sidebar() {
       roles: ['patient']
     },
     {
+      name: 'Report',
+      path: '/adherence-report',
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zm-5-7H7v5h7v-5z" />
+        </svg>
+      ),
+      roles: ['patient']
+    },
+    {
       name: 'Alerts',
       path: '/alerts',
       icon: (
@@ -150,12 +160,12 @@ export default function Sidebar() {
       {/* User Profile Section */}
       <div className="p-4">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-white/5 mb-3 hover:bg-white/10 transition-colors">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#22C55E] to-[#16a34a] flex items-center justify-center font-bold text-sm text-white shadow-md">
-            {user?.name?.charAt(0).toUpperCase() || 'P'}
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2F5B8C] to-[#3E6FA3] flex items-center justify-center font-bold text-sm text-white shadow-md">
+            {(user?.name || user?.firstName)?.charAt(0).toUpperCase() || 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate text-white">{user?.name || 'Patient'}</p>
-            <p className="text-xs text-blue-200 truncate">{user?.email || 'user@example.com'}</p>
+            <p className="text-sm font-semibold truncate text-white">{user?.name || user?.firstName || 'User'}</p>
+            <p className="text-xs text-blue-200 truncate">{user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1).toLowerCase() || 'Patient'}</p>
           </div>
         </div>
         <button

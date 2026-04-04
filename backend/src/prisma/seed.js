@@ -121,11 +121,11 @@ async function main() {
         },
     }).catch(() => prisma.medication.findFirst({ where: { userId: patient.id, name: "Amlodipine" } }));
 
-    console.log("✅ Seed completed!");
+    console.log("Seed completed!");
     console.log("─────────────────────────────────────────");
-    console.log("📧 Admin:     admin@medadherence.com");
-    console.log("📧 Patient:   patient@demo.com");
-    console.log("📧 Caregiver: caregiver@demo.com");
+    console.log("Admin:     admin@medadherence.com");
+    console.log("Patient:   patient@demo.com");
+    console.log("Caregiver: caregiver@demo.com");
     console.log("🔑 Password (all): Password123!");
 }
 
