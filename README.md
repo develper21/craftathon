@@ -16,18 +16,22 @@ A full-stack medication adherence and patient care platform built with Node.js, 
 ## 🛠️ Tech Stack
 
 Backend
-- Node.js + Express.js
-- Prisma ORM + PostgreSQL
-- JWT via `jsonwebtoken`
-- Password hashing via `bcryptjs`
-- Cron jobs with `node-cron`
-- Email notifications via `nodemailer`
+- Node.js + Express.js (v4.21.1)
+- Prisma ORM (v5.22.0) + PostgreSQL
+- JWT via `jsonwebtoken` (v9.0.2)
+- Password hashing via `bcryptjs` (v2.4.3)
+- Cron jobs with `node-cron` (v3.0.3)
+- Email notifications via `nodemailer` (v8.0.4)
+- Logging with `winston` (v3.17.0)
+- Validation with `express-validator` (v7.2.0)
 
 Frontend
-- React + Vite
-- Tailwind CSS
-- React Router
+- React (v18.2.0) + Vite (v8.0.3)
+- @vitejs/plugin-react (v5.0.0)
+- Tailwind CSS (v3.3.6)
+- React Router DOM (v6.20.0)
 - Context API for auth state
+- Lucide React (v1.7.0) for icons
 
 ## 📁 Repository Structure
 
@@ -148,7 +152,24 @@ Frontend base: `http://localhost:5173`
 - Uses `express-validator` in middlewares for request body checks
 - Error handling via `errorHandler` in `src/middlewares/errorHandler.js`
 
-## 🚀 Deployment Notes
+## � Troubleshooting
+
+### Frontend Dependency Conflicts
+If you encounter `ERESOLVE` errors during `npm install` (e.g., Vite and @vitejs/plugin-react version mismatch):
+- Ensure `@vitejs/plugin-react` is at least v5.0.0 for Vite v8 compatibility
+- Run `npm install --legacy-peer-deps` if conflicts persist
+- Or update `.npmrc` with `legacy-peer-deps=true`
+
+### Database Connection Issues
+- Verify PostgreSQL is running and `DATABASE_URL` is correct
+- Run `npx prisma db push` after schema changes
+- Use `npx prisma studio` to inspect data
+
+### Port Conflicts
+- Backend runs on port 5000, frontend on 5173
+- Change ports in `.env` or `vite.config.js` if needed
+
+## �🚀 Deployment Notes
 
 - Set all env vars in your hosting provider (Render, Railway, Heroku, Vercel)
 - Ensure production DB URL and JWT secret are secure
