@@ -107,9 +107,9 @@ export default function Adherence() {
     })
 
     return [
-      { label: 'Morning', emoji: '🌅', percentage: Math.round((timeStats.morning.taken / (timeStats.morning.scheduled || 1)) * 100), color: 'from-blue-500 to-cyan-500' },
-      { label: 'Afternoon', emoji: '☀️', percentage: Math.round((timeStats.afternoon.taken / (timeStats.afternoon.scheduled || 1)) * 100), color: 'from-amber-500 to-orange-500' },
-      { label: 'Evening', emoji: '🌙', percentage: Math.round((timeStats.evening.taken / (timeStats.evening.scheduled || 1)) * 100), color: 'from-indigo-500 to-purple-500' }
+      { label: 'Morning', emoji: '', percentage: Math.round((timeStats.morning.taken / (timeStats.morning.scheduled || 1)) * 100), color: 'from-blue-500 to-cyan-500' },
+      { label: 'Afternoon', emoji: '', percentage: Math.round((timeStats.afternoon.taken / (timeStats.afternoon.scheduled || 1)) * 100), color: 'from-amber-500 to-orange-500' },
+      { label: 'Evening', emoji: '', percentage: Math.round((timeStats.evening.taken / (timeStats.evening.scheduled || 1)) * 100), color: 'from-indigo-500 to-purple-500' }
     ]
   }
 
@@ -178,7 +178,7 @@ export default function Adherence() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 text-center transition-all duration-300 hover:shadow-lg">
             <div className="flex justify-center mb-4">
-              <CircleProgress percentage={adherenceRate} size="sm" />
+              <CircleProgress percentage={adherenceRate} size={100} />
             </div>
             <p className="text-gray-600 text-sm font-medium">Overall Adherence</p>
             <p className="text-3xl font-bold text-[#2F5B8C] mt-3">{adherenceRate}%</p>
@@ -245,7 +245,7 @@ export default function Adherence() {
               {timeBasedAdherence.map((item, idx) => (
                 <div key={idx}>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="font-semibold text-gray-900">{item.emoji} {item.label}</span>
+                    <span className="font-semibold text-gray-900">{item.label}</span>
                     <span className={`font-bold bg-gradient-to-r ${item.color} bg-clip-text text-transparent`}>
                       {item.percentage}%
                     </span>
@@ -272,18 +272,18 @@ export default function Adherence() {
             <div className="space-y-4">
               {adherenceRate < 80 && (
                 <div className="bg-white rounded-xl p-5 border-l-4 border-orange-500 shadow-sm hover:shadow-md transition-all">
-                  <p className="font-semibold text-gray-900 text-sm mb-2">⚠️ Focus Area</p>
+                  <p className="font-semibold text-gray-900 text-sm mb-2">Focus Area</p>
                   <p className="text-sm text-gray-600">Your adherence is below 80%. Try to establish a consistent routine with your medications.</p>
                 </div>
               )}
               {currentStreak >= 7 && (
                 <div className="bg-white rounded-xl p-5 border-l-4 border-emerald-500 shadow-sm hover:shadow-md transition-all">
-                  <p className="font-semibold text-gray-900 text-sm mb-2">✓ Great Streak!</p>
+                  <p className="font-semibold text-gray-900 text-sm mb-2">Great Streak!</p>
                   <p className="text-sm text-gray-600">You're on a {currentStreak}-day streak! Keep up the excellent work!</p>
                 </div>
               )}
               <div className="bg-white rounded-xl p-5 border-l-4 border-blue-500 shadow-sm hover:shadow-md transition-all">
-                <p className="font-semibold text-gray-900 text-sm mb-2">💡 Tip</p>
+                <p className="font-semibold text-gray-900 text-sm mb-2">Tip</p>
                 <p className="text-sm text-gray-600">Enable push notifications to get timely reminders for your medications.</p>
               </div>
             </div>

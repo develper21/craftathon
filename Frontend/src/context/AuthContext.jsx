@@ -65,16 +65,20 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  // Logout with API
+  // Logout
   const logout = async () => {
-    try {
-      await api.logout()
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      setUser(null)
-      setIsAuthenticated(false)
-    }
+    // Clear local storage immediately
+    setUser(null)
+    setIsAuthenticated(false)
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
+    
+    // Call logout API in background (non-blocking)
+    api.logout().catch(() => { })
+    
+    // Redirect to login immediately
+    window.location.href = '/login'
   }
 
   // Update user data (for profile updates)

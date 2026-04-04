@@ -2,6 +2,7 @@ const cron = require("node-cron");
 const logger = require("../utils/logger");
 const prisma = require("../config/prisma");
 const { notifyCaregivers, sendDoseReminder } = require("../services/notification.service");
+const { sendEmail, emailTemplates } = require("../utils/email");
 const { updateAdherenceStats } = require("../services/adherence.service");
 const { generateFutureDoseSchedules } = require("../controllers/medication.controller");
 const { buildWeeklyReport } = require("../controllers/report.controller");
@@ -12,70 +13,115 @@ const { getWeekRange } = require("../utils/scheduleHelper");
  */
 const startCronJobs = () => {
 
-    // ── 1. Mark overdue doses as MISSED (every 10 min) ──────────────────────────
-    cron.schedule("*/10 * * * *", async () => {
+    // ── 1. Mark overdue doses as MISSED (every 1 min) ──────────────────────────
+    cron.schedule("* * * * *", async () => {
         try {
             const now = new Date();
 
+            // Find doses that have passed their 5-minute window
             const overdue = await prisma.doseSchedule.findMany({
-                where: { status: "PENDING", windowEnd: { lte: now } },
-                include: { medication: { select: { name: true } }, user: { select: { id: true } } },
+                where: { 
+                    status: "PENDING", 
+                    windowEnd: { lte: now } 
+                },
+                include: { 
+                    medication: { select: { id: true, name: true } }, 
+                    user: { select: { id: true, email: true, firstName: true } } 
+                },
             });
 
             if (overdue.length === 0) return;
 
+            logger.info(`[CRON] Found ${overdue.length} overdue dose(s) to mark as MISSED`);
+
             // Bulk update to MISSED
             const ids = overdue.map((d) => d.id);
-            await prisma.doseSchedule.updateMany({ where: { id: { in: ids } }, data: { status: "MISSED" } });
+            await prisma.doseSchedule.updateMany({ 
+                where: { id: { in: ids } }, 
+                data: { status: "MISSED" } 
+            });
 
-            logger.info(`Marked ${overdue.length} dose(s) as MISSED`);
-
-            // Update adherence stats & notify caregivers
+            // Process each missed dose
             const userDates = new Set();
             for (const dose of overdue) {
+                const timeStr = dose.scheduledAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                logger.info(`[CRON] 📋 Marked ${dose.medication.name} as MISSED for user ${dose.user.id} (scheduled: ${timeStr})`);
+
+                // Update adherence stats (once per user per day)
                 const key = `${dose.userId}|${dose.scheduledAt.toISOString().split("T")[0]}`;
                 if (!userDates.has(key)) {
                     userDates.add(key);
                     updateAdherenceStats(dose.userId, dose.scheduledAt).catch(() => { });
                 }
 
-                // Notify caregivers
-                const timeStr = dose.scheduledAt.toISOString().replace("T", " ").substring(0, 16) + " UTC";
-                notifyCaregivers(dose.userId, dose.medication.name, timeStr).catch(() => { });
+                // Notify PATIENT about missed dose
+                if (dose.user.email) {
+                    try {
+                        const { subject, html } = emailTemplates.patientMissedDose(
+                            dose.user.firstName || "Patient",
+                            dose.medication.name,
+                            timeStr
+                        );
+                        await sendEmail(dose.user.email, subject, html);
+                        logger.info(`[CRON] ✉️  Sent missed dose email to patient ${dose.user.email} for ${dose.medication.name}`);
+                    } catch (err) {
+                        logger.error(`[CRON] ❌ Failed to send patient email: ${err.message}`);
+                    }
+                }
+
+                // Notify CAREGIVERS about missed dose
+                notifyCaregivers(dose.user.id, dose.medication.name, timeStr).catch((err) => {
+                    logger.error(`[CRON] ❌ Failed to notify caregivers: ${err.message}`);
+                });
             }
         } catch (err) {
-            logger.error(`[CRON] markMissed error: ${err.message}`);
+            logger.error(`[CRON] ❌ markMissed error: ${err.message}`);
         }
     });
 
-    // ── 2. Send dose reminders 15 min before scheduled time (every 5 min) ───────
-    cron.schedule("*/5 * * * *", async () => {
+    // ── 2. Send dose reminders 15 min before scheduled time (every 3 min) ──────
+    cron.schedule("*/3 * * * *", async () => {
         try {
             const now = new Date();
-            const reminderFrom = now;
-            const reminderTo = new Date(now.getTime() + 20 * 60000); // next 20 min
+            const reminderFrom = new Date(now.getTime() - 5 * 60000);  // 5 min ago (for safety)
+            const reminderTo = new Date(now.getTime() + 18 * 60000);   // next 18 min
 
             const upcoming = await prisma.doseSchedule.findMany({
                 where: {
                     status: "PENDING",
                     scheduledAt: { gte: reminderFrom, lte: reminderTo },
                 },
-                include: { medication: { select: { name: true } } },
+                include: { 
+                    medication: { select: { id: true, name: true } }, 
+                    user: { select: { id: true, email: true, firstName: true } },
+                    doseLog: true  // Check if already logged
+                },
             });
 
-            for (const dose of upcoming) {
-                sendDoseReminder(
-                    dose.userId,
-                    dose.medication.name,
-                    dose.scheduledAt.toISOString().substring(11, 16) + " UTC"
-                ).catch(() => { });
+            if (upcoming.length > 0) {
+                logger.info(`[CRON] 🔔 Found ${upcoming.length} upcoming dose(s) for reminders`);
             }
 
-            if (upcoming.length > 0) {
-                logger.info(`[CRON] Sent ${upcoming.length} dose reminder(s)`);
+            for (const dose of upcoming) {
+                // Skip if already taken
+                if (dose.doseLog && dose.doseLog.length > 0) {
+                    continue;
+                }
+
+                const scheduledTimeStr = dose.scheduledAt.toISOString().substring(11, 16);
+                logger.info(`[CRON] 📤 Sending reminder for ${dose.medication.name} to ${dose.user.email} (scheduled: ${scheduledTimeStr})`);
+                
+                sendDoseReminder(
+                    dose.user.id,
+                    dose.medication.name,
+                    scheduledTimeStr
+                ).catch((err) => {
+                    logger.error(`[CRON] ❌ Error sending reminder: ${err.message}`);
+                });
             }
         } catch (err) {
-            logger.error(`[CRON] reminder error: ${err.message}`);
+            logger.error(`[CRON] ❌ reminder error: ${err.message}`);
         }
     });
 
@@ -133,7 +179,7 @@ const startCronJobs = () => {
         }
     });
 
-    logger.info("✅ All cron jobs registered.");
+    logger.info("All cron jobs registered.");
 };
 
 module.exports = { startCronJobs };

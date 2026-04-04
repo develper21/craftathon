@@ -1,33 +1,44 @@
 import { useState } from 'react'
 import { Bell, Mail, Lock, Database, Shield, Eye, Save } from 'lucide-react'
 
-export default function AdminSettings() {
-  const [settings, setSettings] = useState({
-    emailNotifications: true,
-    smsNotifications: false,
-    pushNotifications: true,
-    weeklyReport: true,
-    systemAlerts: true,
-    maintenanceMode: false,
-    twoFactorAuth: true,
-    dataBackup: true,
-    autoLogout: true,
-    anonymizeData: false
-  })
+const initialSettings = {
+  emailNotifications: true,
+  smsNotifications: false,
+  pushNotifications: true,
+  weeklyReport: true,
+  systemAlerts: true,
+  maintenanceMode: false,
+  twoFactorAuth: true,
+  dataBackup: true,
+  autoLogout: true,
+  anonymizeData: false
+}
 
+export default function AdminSettings() {
+  const [settings, setSettings] = useState(initialSettings)
   const [saved, setSaved] = useState(false)
+  const [dirty, setDirty] = useState(false)
 
   const handleToggle = (key) => {
     setSettings(prev => ({
       ...prev,
       [key]: !prev[key]
     }))
+    setDirty(true)
     setSaved(false)
   }
 
   const handleSave = () => {
+    // In a real app, save to API here (PATCH/POST)
     setSaved(true)
+    setDirty(false)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const handleCancel = () => {
+    setSettings(initialSettings)
+    setDirty(false)
+    setSaved(false)
   }
 
   const ToggleSwitch = ({ value, onChange }) => (
@@ -46,12 +57,13 @@ export default function AdminSettings() {
   )
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-2">Manage system configuration and preferences</p>
-      </div>
+    <div className="min-h-screen bg-gray-50/50 p-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+          <p className="text-gray-600 mt-2">Manage system configuration and preferences</p>
+        </div>
 
       {/* Save Notification */}
       {saved && (
@@ -256,18 +268,24 @@ export default function AdminSettings() {
         </div>
       </div>
 
-      {/* Save Button */}
-      <div className="flex gap-3 justify-end sticky bottom-6">
-        <button className="px-6 py-3 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition">
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          className="px-6 py-3 bg-[#6366F1] hover:bg-indigo-700 text-white rounded-lg font-medium transition flex items-center gap-2"
-        >
-          <Save size={16} />
-          Save Changes
-        </button>
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 pt-6 border-t border-gray-200 mt-8">
+          <button
+            onClick={handleCancel}
+            className="px-6 py-3 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition disabled:text-gray-400 disabled:border-gray-200"
+            disabled={!dirty}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className={`px-6 py-3 rounded-lg font-medium transition flex items-center gap-2 ${dirty ? 'bg-[#6366F1] hover:bg-indigo-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+            disabled={!dirty}
+          >
+            <Save size={16} />
+            Save Changes
+          </button>
+        </div>
       </div>
     </div>
   )

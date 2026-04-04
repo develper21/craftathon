@@ -57,7 +57,7 @@ export default function DoctorDashboard() {
         {/* Quick Stats */}
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <Card className="text-center">
-            <div className="text-4xl mb-2">👥</div>
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mb-2"></div>
             <p className="text-gray-600 text-sm">Total Patients</p>
             <p className="text-3xl font-bold text-primary-blue">4</p>
           </Card>
@@ -69,7 +69,7 @@ export default function DoctorDashboard() {
           </Card>
 
           <Card className="text-center">
-            <div className="text-4xl mb-2">🎯</div>
+            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center mb-2"></div>
             <p className="text-gray-600 text-sm">Avg Adherence</p>
             <p className="text-3xl font-bold text-green-500">75%</p>
           </Card>
@@ -94,7 +94,7 @@ export default function DoctorDashboard() {
               ➕ Add Patient
             </Button>
             <Button variant="secondary" className="w-full">
-              📊 Reports
+              Reports
             </Button>
           </div>
         </Card>
@@ -138,7 +138,7 @@ export default function DoctorDashboard() {
                 </div>
 
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>💊 {patient.medications} medications</span>
+                  <span>{patient.medications} medications</span>
                   <span>Last check: {patient.lastCheck}</span>
                 </div>
               </Card>

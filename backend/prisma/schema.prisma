@@ -70,7 +70,7 @@ model User {
   firstName        String
   lastName         String
   phone            String?
-  fcmToken         String?   // Firebase push notification token
+  fcmToken         String? // Firebase push notification token
   isEmailVerified  Boolean   @default(false)
   emailVerifyToken String?
   resetToken       String?
@@ -80,33 +80,35 @@ model User {
   updatedAt        DateTime  @updatedAt
 
   // Relations
-  profile            Profile?
-  refreshTokens      RefreshToken[]
-  medications        Medication[]         // medications owned by this patient
-  doseSchedules      DoseSchedule[]
-  doseLogs           DoseLog[]
-  notifications      Notification[]
+  profile         Profile?
+  refreshTokens   RefreshToken[]
+  streak          Streak? // Streak tracking relation
+  medications     Medication[] // medications owned by this patient
+  doseSchedules   DoseSchedule[]
+  doseLogs        DoseLog[]
+  notifications   Notification[]
+  deviceTokens    DeviceToken[] // Push notification tokens
   // Caregiver relations
-  caregiverLinks     CaregiverLink[]      @relation("CaregiverLinks")
-  patientLinks       CaregiverLink[]      @relation("PatientLinks")
-  caregiverAlerts    CaregiverAlert[]     @relation("CaregiverAlerts")
-  weeklyReports      WeeklyReport[]
+  caregiverLinks  CaregiverLink[]  @relation("CaregiverLinks")
+  patientLinks    CaregiverLink[]  @relation("PatientLinks")
+  caregiverAlerts CaregiverAlert[] @relation("CaregiverAlerts")
+  weeklyReports   WeeklyReport[]
 
   @@map("users")
 }
 
 model Profile {
-  id            String    @id @default(uuid())
-  userId        String    @unique
-  dateOfBirth   DateTime?
-  gender        String?
-  bloodGroup    String?
-  allergies     String[]
-  conditions    String[]   // medical conditions
-  avatarUrl     String?
-  timezone      String    @default("UTC")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  dateOfBirth DateTime?
+  gender      String?
+  bloodGroup  String?
+  allergies   String[]
+  conditions  String[] // medical conditions
+  avatarUrl   String?
+  timezone    String    @default("UTC")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -138,7 +140,7 @@ model CaregiverLink {
   updatedAt   DateTime @updatedAt
 
   caregiver User @relation("CaregiverLinks", fields: [caregiverId], references: [id], onDelete: Cascade)
-  patient   User @relation("PatientLinks",   fields: [patientId],   references: [id], onDelete: Cascade)
+  patient   User @relation("PatientLinks", fields: [patientId], references: [id], onDelete: Cascade)
 
   @@unique([caregiverId, patientId])
   @@map("caregiver_links")
@@ -153,19 +155,19 @@ model Medication {
   userId        String
   name          String
   brandName     String?
-  dosage        String         // e.g., "500mg", "1 tablet"
+  dosage        String // e.g., "500mg", "1 tablet"
   unit          String        @default("mg")
   frequency     FrequencyType
-  customDays    Int[]          // for CUSTOM frequency: days of week [0-6]
-  times         String[]       // e.g., ["08:00", "14:00", "20:00"]
+  customDays    Int[] // for CUSTOM frequency: days of week [0-6]
+  times         String[] // e.g., ["08:00", "14:00", "20:00"]
   startDate     DateTime
   endDate       DateTime?
-  instructions  String?        // e.g., "Take after meal"
+  instructions  String? // e.g., "Take after meal"
   refillDate    DateTime?
   totalQuantity Int?
   remainingQty  Int?
   isActive      Boolean       @default(true)
-  color         String?        // for UI color coding
+  color         String? // for UI color coding
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -181,15 +183,15 @@ model Medication {
 // ─────────────────────────────────────────────
 
 model DoseSchedule {
-  id            String     @id @default(uuid())
-  userId        String
-  medicationId  String
-  scheduledAt   DateTime   // exact date+time the dose is scheduled
-  status        DoseStatus @default(PENDING)
-  windowStart   DateTime   // reminder window open
-  windowEnd     DateTime   // missed if not taken by this time
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id           String     @id @default(uuid())
+  userId       String
+  medicationId String
+  scheduledAt  DateTime // exact date+time the dose is scheduled
+  status       DoseStatus @default(PENDING)
+  windowStart  DateTime // reminder window open
+  windowEnd    DateTime // missed if not taken by this time
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   medication Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
@@ -228,18 +230,18 @@ model DoseLog {
 // ─────────────────────────────────────────────
 
 model AdherenceStat {
-  id              String   @id @default(uuid())
-  userId          String
-  date            DateTime // date only (stored as start-of-day UTC)
-  scheduled       Int      @default(0)
-  taken           Int      @default(0)
-  missed          Int      @default(0)
-  late            Int      @default(0)
-  skipped         Int      @default(0)
-  adherenceScore  Float    @default(0) // (taken+late)/scheduled * 100
-  streakDay       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(uuid())
+  userId         String
+  date           DateTime // date only (stored as start-of-day UTC)
+  scheduled      Int      @default(0)
+  taken          Int      @default(0)
+  missed         Int      @default(0)
+  late           Int      @default(0)
+  skipped        Int      @default(0)
+  adherenceScore Float    @default(0) // (taken+late)/scheduled * 100
+  streakDay      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([userId, date])
   @@index([userId, date])
@@ -251,12 +253,14 @@ model AdherenceStat {
 // ─────────────────────────────────────────────
 
 model Streak {
-  id            String   @id @default(uuid())
-  userId        String   @unique
-  currentStreak Int      @default(0)
-  longestStreak Int      @default(0)
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  currentStreak Int       @default(0)
+  longestStreak Int       @default(0)
   lastActiveDay DateTime?
-  updatedAt     DateTime @updatedAt
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("streaks")
 }
@@ -272,7 +276,7 @@ model Notification {
   channel   NotificationChannel
   title     String
   body      String
-  data      Json?               // extra payload
+  data      Json? // extra payload
   isRead    Boolean             @default(false)
   sentAt    DateTime?
   createdAt DateTime            @default(now())
@@ -291,7 +295,7 @@ model CaregiverAlert {
   id          String      @id @default(uuid())
   caregiverId String
   patientId   String
-  type        String      // "MISSED_DOSE", "LOW_ADHERENCE", etc.
+  type        String // "MISSED_DOSE", "LOW_ADHERENCE", etc.
   message     String
   data        Json?
   status      AlertStatus @default(UNREAD)
@@ -309,7 +313,7 @@ model CaregiverAlert {
 // ─────────────────────────────────────────────
 
 model WeeklyReport {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   userId         String
   weekStartDate  DateTime
   weekEndDate    DateTime
@@ -320,9 +324,9 @@ model WeeklyReport {
   adherenceScore Float
   bestDay        String?
   worstDay       String?
-  reportData     Json?    // full breakdown per medication
+  reportData     Json? // full breakdown per medication
   sentAt         DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -338,10 +342,12 @@ model DeviceToken {
   id        String   @id @default(uuid())
   userId    String
   token     String   @unique
-  platform  String   // "android", "ios", "web"
+  platform  String // "android", "ios", "web"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("device_tokens")

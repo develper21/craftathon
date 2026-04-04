@@ -3,6 +3,7 @@ const AppError = require("../utils/AppError");
 const { sendSuccess } = require("../utils/apiResponse");
 const { getWeekRange, calcAdherenceScore, formatDate } = require("../utils/scheduleHelper");
 const { sendEmail, emailTemplates } = require("../utils/email");
+const logger = require("../utils/logger");
 
 // ─── Get Weekly Report ────────────────────────────────────────────────────────
 const getWeeklyReport = async (req, res, next) => {
@@ -149,4 +150,126 @@ const buildWeeklyReport = async (userId, start, end) => {
     return report;
 };
 
-module.exports = { getWeeklyReport, getReportHistory, getPatientReport, emailWeeklyReport, buildWeeklyReport };
+// ─── Get Comprehensive Adherence Report (30 days) ────────────────────────────
+const getAdherenceReport = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+            });
+        }
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+        // Get dose logs and schedules
+        const allDoseLogs = await prisma.doseLog.findMany({
+            where: {
+                userId,
+                takenAt: { gte: oneYearAgo, lte: now },
+            },
+        });
+
+        const allDoseSchedules = await prisma.doseSchedule.findMany({
+            where: {
+                userId,
+                scheduledAt: { gte: oneYearAgo, lte: now },
+            },
+        });
+
+        // Get streak
+        const streak = await prisma.streak.findUnique({
+            where: { userId },
+        }).catch(err => {
+            logger.warn(`Streak not found for user ${userId}`);
+            return null;
+        });
+
+        // Filter 30-day data
+        const thirtyDayDoseLogs = allDoseLogs.filter(log => {
+            const logDate = new Date(log.takenAt);
+            return logDate >= thirtyDaysAgo && logDate <= now;
+        });
+
+        const thirtyDayDoseSchedules = allDoseSchedules.filter(sch => {
+            const schDate = new Date(sch.scheduledAt);
+            return schDate >= thirtyDaysAgo && schDate <= now;
+        });
+
+        // Calculate 30-day metrics
+        const totalExpected = thirtyDayDoseSchedules.length;
+        const totalTaken = thirtyDayDoseLogs.filter(log => 
+            log.status === "TAKEN" || log.status === "LATE"
+        ).length;
+        const totalMissed = thirtyDayDoseSchedules.filter(sch => 
+            sch.status === "MISSED"
+        ).length;
+
+        const adherencePercentage = totalExpected > 0 
+            ? Math.round((totalTaken / totalExpected) * 100) 
+            : 0;
+
+        // Calculate monthly trend
+        const monthlyTrend = [];
+        for (let i = 11; i >= 0; i--) {
+            const monthDate = new Date();
+            monthDate.setMonth(monthDate.getMonth() - i);
+            monthDate.setDate(1);
+            monthDate.setHours(0, 0, 0, 0);
+
+            const monthStart = new Date(monthDate);
+            const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+            const monthDoseLogs = allDoseLogs.filter(log => {
+                const logDate = new Date(log.takenAt);
+                return logDate >= monthStart && logDate <= monthEnd;
+            });
+
+            const monthSchedules = allDoseSchedules.filter(sch => {
+                const schDate = new Date(sch.scheduledAt);
+                return schDate >= monthStart && schDate <= monthEnd;
+            });
+
+            const monthTotal = monthSchedules.length;
+            const monthTakenCount = monthDoseLogs.filter(log => 
+                log.status === "TAKEN" || log.status === "LATE"
+            ).length;
+            const monthPercentage = monthTotal > 0 
+                ? Math.round((monthTakenCount / monthTotal) * 100) 
+                : 0;
+
+            const monthName = monthStart.toLocaleString("en-US", { month: "short" });
+
+            monthlyTrend.push({
+                month: monthName,
+                percentage: monthPercentage,
+                taken: monthTakenCount,
+                expected: monthTotal,
+            });
+        }
+
+        sendSuccess(res, {
+            adherence: adherencePercentage,
+            taken: totalTaken,
+            missed: totalMissed,
+            expected: totalExpected,
+            streak: streak?.currentStreak || 0,
+            longestStreak: streak?.longestStreak || 0,
+            monthly: monthlyTrend,
+            lastUpdated: new Date(),
+        });
+    } catch (err) {
+        logger.error(`Failed to generate adherence report: ${err.message}`);
+        res.status(500).json({
+            success: false,
+            message: "Failed to generate adherence report",
+            error: process.env.NODE_ENV === "development" ? err.message : undefined,
+        });
+    }
+};
+
+module.exports = { getWeeklyReport, getReportHistory, getPatientReport, emailWeeklyReport, buildWeeklyReport, getAdherenceReport };

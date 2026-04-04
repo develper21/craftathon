@@ -10,8 +10,8 @@ router.post("/register",
         body("email").isEmail().normalizeEmail().withMessage("Valid email required"),
         body("password").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
         body("firstName").notEmpty().trim().withMessage("First name required"),
-        body("lastName").notEmpty().trim().withMessage("Last name required"),
-        body("role").optional().isIn(["PATIENT", "CAREGIVER", "DOCTOR"]).withMessage("Invalid role"),
+        body("lastName").optional().trim(),
+        body("role").optional().isIn(["PATIENT", "CAREGIVER", "DOCTOR", "ADMIN"]).withMessage("Invalid role"),
     ],
     validate,
     ctrl.register
@@ -46,6 +46,9 @@ router.post("/forgot-password",
     validate,
     ctrl.forgotPassword
 );
+
+// GET /api/v1/auth/reset-password/:token (Show reset form)
+router.get("/reset-password/:token", ctrl.resetPasswordForm);
 
 // POST /api/v1/auth/reset-password
 router.post("/reset-password",

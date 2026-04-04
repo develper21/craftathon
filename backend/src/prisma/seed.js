@@ -20,8 +20,14 @@ async function main() {
             role: "ADMIN",
             isEmailVerified: true,
             profile: { create: {} },
-            streak: { create: {} },
         },
+    });
+
+    // Create streak for admin separately
+    await prisma.streak.upsert({
+        where: { userId: admin.id },
+        update: {},
+        create: { userId: admin.id },
     });
 
     // Demo patient
@@ -43,8 +49,14 @@ async function main() {
                     timezone: "Asia/Kolkata",
                 },
             },
-            streak: { create: {} },
         },
+    });
+
+    // Create streak for patient separately
+    await prisma.streak.upsert({
+        where: { userId: patient.id },
+        update: {},
+        create: { userId: patient.id },
     });
 
     // Demo caregiver
@@ -59,8 +71,14 @@ async function main() {
             role: "CAREGIVER",
             isEmailVerified: true,
             profile: { create: {} },
-            streak: { create: {} },
         },
+    });
+
+    // Create streak for caregiver separately
+    await prisma.streak.upsert({
+        where: { userId: caregiver.id },
+        update: {},
+        create: { userId: caregiver.id },
     });
 
     // Link caregiver to patient (auto-accepted)
@@ -103,11 +121,11 @@ async function main() {
         },
     }).catch(() => prisma.medication.findFirst({ where: { userId: patient.id, name: "Amlodipine" } }));
 
-    console.log("✅ Seed completed!");
+    console.log("Seed completed!");
     console.log("─────────────────────────────────────────");
-    console.log("📧 Admin:     admin@medadherence.com");
-    console.log("📧 Patient:   patient@demo.com");
-    console.log("📧 Caregiver: caregiver@demo.com");
+    console.log("Admin:     admin@medadherence.com");
+    console.log("Patient:   patient@demo.com");
+    console.log("Caregiver: caregiver@demo.com");
     console.log("🔑 Password (all): Password123!");
 }
 

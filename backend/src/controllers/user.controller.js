@@ -6,17 +6,27 @@ const { sendSuccess } = require("../utils/apiResponse");
 // ─── Get Profile ──────────────────────────────────────────────────────────────
 const getProfile = async (req, res, next) => {
     try {
-        const user = await prisma.user.findUnique({
-            where: { id: req.user.id },
-            select: {
-                id: true, email: true, firstName: true, lastName: true,
-                phone: true, role: true, isEmailVerified: true,
-                createdAt: true, profile: true,
-                streak: { select: { currentStreak: true, longestStreak: true, lastActiveDay: true } },
-            },
-        });
+        const [user, streak] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: req.user.id },
+                select: {
+                    id: true, email: true, firstName: true, lastName: true,
+                    phone: true, role: true, isEmailVerified: true,
+                    createdAt: true, profile: true,
+                },
+            }),
+            prisma.streak.findUnique({
+                where: { userId: req.user.id },
+                select: { currentStreak: true, longestStreak: true, lastActiveDay: true }
+            })
+        ]);
+        
         if (!user) throw new AppError("User not found.", 404);
-        sendSuccess(res, { user });
+        
+        // Add streak to user object
+        const userWithStreak = { ...user, streak };
+        
+        sendSuccess(res, { user: userWithStreak });
     } catch (err) {
         next(err);
     }

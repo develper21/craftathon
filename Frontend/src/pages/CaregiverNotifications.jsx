@@ -1,4 +1,4 @@
-import { Bell, Check, AlertCircle, Info, Clock, Trash2 } from 'lucide-react'
+import { Bell, Check, AlertCircle, Info, Clock, Trash2, CheckCheck } from 'lucide-react'
 import { useState } from 'react'
 
 export default function CaregiverNotifications() {
@@ -61,6 +61,7 @@ export default function CaregiverNotifications() {
   ])
 
   const [filter, setFilter] = useState('all')
+  const [selectedNotification, setSelectedNotification] = useState(null)
 
   const filteredNotifications = notifications.filter((notif) => {
     if (filter === 'unread') return !notif.read
@@ -77,6 +78,96 @@ export default function CaregiverNotifications() {
   const handleMarkAsRead = (id) => {
     setNotifications(
       notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
+    )
+  }
+
+  // Notification Detail Modal Component
+  const NotificationDetailModal = ({ notification, onClose }) => {
+    if (!notification) return null
+    
+    const Icon = notification.icon
+
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200">
+          {/* Header - Simple and Clean */}
+          <div className="bg-gradient-to-br from-[#2F5B8C] to-[#3E6FA3] p-6 text-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <h2 className="text-xl font-bold">{notification.title}</h2>
+                <p className="text-blue-100 text-sm mt-1">{notification.time}</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Content - Clean Layout */}
+          <div className="p-6 space-y-4">
+            {/* Patient Section */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <p className="text-xs uppercase tracking-wider font-semibold text-blue-600 mb-2">Patient</p>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">👤</span>
+                <div>
+                  <p className="font-semibold text-gray-900">{notification.patient}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Message Section */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <p className="text-xs uppercase tracking-wider font-semibold text-gray-600 mb-2">Message</p>
+              <p className="text-gray-900 text-sm leading-relaxed font-medium">{notification.message}</p>
+            </div>
+
+            {/* Status */}
+            <div className="flex items-center gap-2">
+              {notification.read ? (
+                <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                  <CheckCheck size={14} />
+                  Read
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                  <AlertCircle size={14} />
+                  Unread
+                </span>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-4 border-t border-gray-200">
+              {!notification.read && (
+                <button
+                  onClick={() => {
+                    handleMarkAsRead(notification.id)
+                    onClose()
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-[#2F5B8C] hover:bg-[#264a73] text-white font-semibold rounded-lg transition-colors text-sm"
+                >
+                  Mark as Read
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  handleDelete(notification.id)
+                  onClose()
+                }}
+                className="flex-1 px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-semibold rounded-lg transition-colors text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -156,7 +247,8 @@ export default function CaregiverNotifications() {
             return (
               <div
                 key={notif.id}
-                className={`rounded-xl p-6 border-2 transition-all ${
+                onClick={() => setSelectedNotification(notif)}
+                className={`rounded-xl p-6 border-2 transition-all cursor-pointer hover:shadow-md ${
                   notif.read
                     ? 'bg-white border-gray-100 hover:border-gray-300'
                     : 'bg-blue-50 border-[#14B8A6] hover:shadow-md'
@@ -196,7 +288,7 @@ export default function CaregiverNotifications() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     {!notif.read && (
                       <button
                         onClick={() => handleMarkAsRead(notif.id)}
@@ -224,6 +316,14 @@ export default function CaregiverNotifications() {
           </div>
         )}
       </div>
+
+      {/* Notification Detail Modal */}
+      {selectedNotification && (
+        <NotificationDetailModal 
+          notification={selectedNotification}
+          onClose={() => setSelectedNotification(null)}
+        />
+      )}
     </div>
   )
 }

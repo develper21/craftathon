@@ -11,7 +11,7 @@ const server = app.listen(PORT, () => {
 
   // Start background cron jobs
   startCronJobs();
-  logger.info("⏰ Cron jobs started");
+  logger.info("Cron jobs started");
 });
 
 // Graceful shutdown

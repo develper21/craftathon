@@ -8,10 +8,12 @@ import VerifyEmail from '../pages/VerifyEmail'
 import ForgotPassword from '../pages/ForgotPassword'
 import ResetPassword from '../pages/ResetPassword'
 import PatientDashboard from '../pages/PatientDashboard'
+import MedicationHistory from '../pages/MedicationHistory'
 import AddMedication from '../pages/AddMedication'
 import EditMedication from '../pages/EditMedication'
 import Schedule from '../pages/Schedule'
 import Adherence from '../pages/Adherence'
+import AdherenceReport from '../pages/AdherenceReport'
 import Profile from '../pages/Profile'
 import Notifications from '../pages/Notifications'
 import PatientDetail from '../pages/PatientDetail'
@@ -48,8 +50,14 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     return <Navigate to="/login" />
   }
 
-  if (requiredRole && user?.role !== requiredRole) {
-    return <Navigate to="/" />
+  if (requiredRole) {
+    const userRole = user?.role?.toUpperCase()
+    const required = requiredRole.toUpperCase()
+    // Special case: DOCTOR and CAREGIVER can both access caregiver routes
+    const hasAccess = userRole === required || (required === 'CAREGIVER' && userRole === 'DOCTOR')
+    if (!hasAccess) {
+      return <Navigate to="/" />
+    }
   }
 
   return children
@@ -72,6 +80,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="patient">
             <PatientDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/medication-history"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <MedicationHistory />
           </ProtectedRoute>
         }
       />
@@ -104,6 +120,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="patient">
             <Adherence />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/adherence-report"
+        element={
+          <ProtectedRoute requiredRole="patient">
+            <AdherenceReport />
           </ProtectedRoute>
         }
       />
@@ -149,7 +173,7 @@ export default function AppRoutes() {
       <Route
         path="/caregiver"
         element={
-          <ProtectedRoute requiredRole="doctor">
+          <ProtectedRoute requiredRole="caregiver">
             <CaregiverLayout />
           </ProtectedRoute>
         }

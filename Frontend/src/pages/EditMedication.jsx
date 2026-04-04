@@ -322,7 +322,7 @@ export default function EditMedication() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <Clock size={16} className="text-[#3E6FA3]" />
                     Medicine Times
                   </label>

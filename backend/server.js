@@ -64,7 +64,7 @@ app.use('/api/messages', messagesRoutes);
 
 /* -------------------- Root Health Check -------------------- */
 app.get("/", (req, res) => {
-  res.send("API Working ✅");
+  res.send("API Working");
 });
 
 /* -------------------- Health Check -------------------- */
@@ -80,9 +80,9 @@ app.get('/health', (req, res) => {
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.DB_URI);
-    console.log('✅ MongoDB connected');
+    console.log('MongoDB connected');
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error.message);
+    console.error('MongoDB connection failed:', error.message);
     process.exit(1);
   }
 };

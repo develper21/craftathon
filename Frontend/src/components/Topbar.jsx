@@ -36,13 +36,13 @@ export default function Topbar({ title = 'Dashboard', subtitle = '' }) {
         {/* User Info */}
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-semibold text-gray-900">{user?.name || 'Patient'}</p>
-            <p className="text-xs text-gray-500">{user?.role === 'doctor' ? 'Doctor' : 'Patient'}</p>
+            <p className="text-sm font-semibold text-gray-900">{user?.name || user?.firstName || 'User'}</p>
+            <p className="text-xs text-gray-500">{user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1).toLowerCase() || 'Patient'}</p>
           </div>
           <button
             onClick={() => navigate('/profile')}
             className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2F5B8C] to-[#3E6FA3] flex items-center justify-center text-white font-bold text-sm shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer hover:scale-105">
-            {user?.name?.charAt(0).toUpperCase() || 'P'}
+            {user?.name?.charAt(0).toUpperCase() || user?.firstName?.charAt(0).toUpperCase() || 'U'}
           </button>
         </div>
       </div>

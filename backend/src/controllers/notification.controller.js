@@ -1,6 +1,8 @@
 const prisma = require("../config/prisma");
 const { sendSuccess } = require("../utils/apiResponse");
 const AppError = require("../utils/AppError");
+const { sendDoseReminder, notifyCaregivers } = require("../services/notification.service");
+const logger = require("../utils/logger");
 
 // ─── Get Notifications ────────────────────────────────────────────────────────
 const getNotifications = async (req, res, next) => {
@@ -76,4 +78,56 @@ const getUnreadCount = async (req, res, next) => {
     }
 };
 
-module.exports = { getNotifications, markAsRead, deleteNotification, getUnreadCount };
+// ─── Fallback: Process Pending Reminders (triggered by frontend if cron fails) ──
+const processPendingReminders = async (req, res, next) => {
+    try {
+        const now = new Date();
+        const reminderFrom = new Date(now.getTime() - 5 * 60000);  // 5 min ago (for safety)
+        const reminderTo = new Date(now.getTime() + 18 * 60000);   // next 18 min
+
+        const upcoming = await prisma.doseSchedule.findMany({
+            where: {
+                userId: req.user.id,
+                status: "PENDING",
+                scheduledAt: { gte: reminderFrom, lte: reminderTo },
+            },
+            include: { 
+                medication: { select: { id: true, name: true } }, 
+                user: { select: { id: true, email: true, firstName: true } },
+                doseLog: true
+            },
+        });
+
+        if (upcoming.length === 0) {
+            return sendSuccess(res, { processed: 0, message: "No pending reminders" });
+        }
+
+        let processed = 0;
+        for (const dose of upcoming) {
+            // Skip if already taken
+            if (dose.doseLog && dose.doseLog.length > 0) {
+                continue;
+            }
+
+            const scheduledTimeStr = dose.scheduledAt.toISOString().substring(11, 16);
+            logger.info(`[FALLBACK] 📤 Sending reminder for ${dose.medication.name} to ${dose.user.email} (scheduled: ${scheduledTimeStr})`);
+            
+            try {
+                await sendDoseReminder(
+                    dose.user.id,
+                    dose.medication.name,
+                    scheduledTimeStr
+                );
+                processed++;
+            } catch (err) {
+                logger.error(`[FALLBACK] ❌ Error sending reminder: ${err.message}`);
+            }
+        }
+
+        sendSuccess(res, { processed, total: upcoming.length, message: `Processed ${processed}/${upcoming.length} reminders` });
+    } catch (err) {
+        next(err);
+    }
+};
+
+module.exports = { getNotifications, markAsRead, deleteNotification, getUnreadCount, processPendingReminders };

@@ -71,15 +71,49 @@ const notifyCaregivers = async (patientId, medicationName, scheduledTime) => {
 };
 
 /**
- * Send dose reminder notification (in-app)
+ * Send dose reminder notification (in-app + email)
  */
 const sendDoseReminder = async (userId, medicationName, scheduledTime) => {
-    await createInAppNotification(
-        userId,
-        "DOSE_REMINDER",
-        "💊 Medication Reminder",
-        `Time to take your ${medicationName} (scheduled at ${scheduledTime}).`
-    );
+    try {
+        // Get user details
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, email: true, firstName: true },
+        });
+
+        if (!user) {
+            logger.warn(`[REMINDER] User ${userId} not found`);
+            return;
+        }
+
+        if (!user.email) {
+            logger.warn(`[REMINDER] User ${user.id} has no email`);
+            return;
+        }
+
+        // Create in-app notification
+        await createInAppNotification(
+            userId,
+            "DOSE_REMINDER",
+            "💊 Medication Reminder",
+            `Time to take your ${medicationName} (scheduled at ${scheduledTime}).`
+        );
+
+        // Send email reminder
+        try {
+            const { subject, html } = emailTemplates.medicationReminder(
+                user.firstName || "User",
+                medicationName,
+                scheduledTime
+            );
+            await sendEmail(user.email, subject, html);
+            logger.info(`✓ Reminder email sent to ${user.email} for ${medicationName} at ${scheduledTime}`);
+        } catch (emailErr) {
+            logger.error(`✗ Failed to send reminder email to ${user.email}: ${emailErr.message}`);
+        }
+    } catch (err) {
+        logger.error(`Failed to send dose reminder: ${err.message}`);
+    }
 };
 
 module.exports = { createInAppNotification, notifyCaregivers, sendDoseReminder };

@@ -15,6 +15,7 @@ const logDose = async (req, res, next) => {
         if (doseScheduleId) {
             schedule = await prisma.doseSchedule.findFirst({
                 where: { id: doseScheduleId, userId: req.user.id },
+                include: { medication: { select: { name: true } } },
             });
             if (!schedule) throw new AppError("Dose schedule not found.", 404);
             if (schedule.status === "TAKEN") throw new AppError("This dose has already been logged.", 409);
@@ -46,6 +47,10 @@ const logDose = async (req, res, next) => {
             });
         }
 
+        // Log success
+        const logger = require("../utils/logger");
+        logger.info(`[DOSE] Logged as ${status}: ${schedule?.medication?.name || 'Unknown'} | User: ${req.user.id} | DoseId: ${doseScheduleId}`);
+
         // Update adherence stats and streak asynchronously
         updateAdherenceStats(req.user.id, takenAt).catch(() => { });
         updateStreak(req.user.id).catch(() => { });
@@ -63,6 +68,7 @@ const skipDose = async (req, res, next) => {
 
         const schedule = await prisma.doseSchedule.findFirst({
             where: { id: doseScheduleId, userId: req.user.id },
+            include: { medication: { select: { name: true } } },
         });
         if (!schedule) throw new AppError("Dose schedule not found.", 404);
         if (schedule.status !== "PENDING") throw new AppError("Dose is already logged.", 409);
@@ -80,6 +86,10 @@ const skipDose = async (req, res, next) => {
             }),
             prisma.doseSchedule.update({ where: { id: schedule.id }, data: { status: "SKIPPED" } }),
         ]);
+
+        // Log success
+        const logger = require("../utils/logger");
+        logger.info(`[DOSE] Skipped: ${schedule?.medication?.name || 'Unknown'} | Reason: ${reason || 'No reason'} | User: ${req.user.id} | DoseId: ${doseScheduleId}`);
 
         updateAdherenceStats(req.user.id, new Date()).catch(() => { });
 
@@ -156,18 +166,26 @@ const getMissedDoses = async (req, res, next) => {
 const getPendingDoses = async (req, res, next) => {
     try {
         const now = new Date();
+        const todayStart = new Date(now);
+        todayStart.setUTCHours(0, 0, 0, 0);
         const todayEnd = endOfDay(now);
 
+        // Get ALL doses for today (regardless of status)
         const pending = await prisma.doseSchedule.findMany({
             where: {
                 userId: req.user.id,
-                status: "PENDING",
-                scheduledAt: { lte: todayEnd },
-                windowEnd: { gte: now },
+                scheduledAt: { gte: todayStart, lte: todayEnd }, // Today only
             },
-            include: { medication: { select: { name: true, dosage: true, color: true, instructions: true } } },
+            include: {
+                medication: { select: { id: true, name: true, dosage: true, color: true, instructions: true } },
+                doseLog: true,
+            },
             orderBy: { scheduledAt: "asc" },
         });
+
+        // Log success
+        const logger = require("../utils/logger");
+        logger.info(`[DOSE] Fetching pending doses for today: Found ${pending.length} dose(s) | User: ${req.user.id} | Date: ${todayStart.toISOString().split('T')[0]}`);
 
         sendSuccess(res, { pending, total: pending.length });
     } catch (err) {

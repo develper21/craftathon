@@ -143,7 +143,7 @@ export default function PatientDetail() {
               </div>
 
               <div className="bg-white rounded-lg p-4 border-l-4 border-blue-400">
-                <p className="font-semibold text-gray-900 text-sm">💡 Recommendation</p>
+                <p className="font-semibold text-gray-900 text-sm">Recommendation</p>
                 <p className="text-sm text-gray-600 mt-2">Schedule follow-up appointment to discuss medication side effects.</p>
               </div>
             </div>

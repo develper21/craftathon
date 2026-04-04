@@ -9,6 +9,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [toast, setToast] = useState(null)
+  const [selectedNotification, setSelectedNotification] = useState(null)
 
   // Fetch notifications on mount
   useEffect(() => {
@@ -33,7 +34,13 @@ export default function Notifications() {
           icon: getNotificationIcon(n.type),
           color: getNotificationColor(n.type),
           read: n.isRead,
-          createdAt: n.createdAt
+          createdAt: n.createdAt,
+          sender: n.sender || 'System',
+          senderType: n.senderType || 'system',
+          patientName: n.patientName || null,
+          medicineName: n.medicineName || null,
+          dosedScheduleTime: n.dosedScheduleTime || null,
+          details: n.details || null
         })) || []
 
         setNotifications(notifs)
@@ -140,10 +147,159 @@ export default function Notifications() {
   const unreadNotifications = notifications.filter(n => !n.read)
   const readNotifications = notifications.filter(n => n.read)
 
+  // Notification Detail Modal Component
+  const NotificationDetailModal = ({ notification, onClose }) => {
+    if (!notification) return null
+    
+    const Icon = notification.icon
+    
+    const getSenderInfo = () => {
+      if (notification.senderType === 'caregiver') {
+        return { label: 'Caregiver', icon: '👨‍⚕️' }
+      } else if (notification.senderType === 'doctor') {
+        return { label: 'Doctor', icon: '👨‍⚕️' }
+      } else if (notification.senderType === 'system') {
+        return { label: 'System', icon: '🔔' }
+      } else if (notification.senderType === 'pharmacy') {
+        return { label: 'Pharmacy', icon: '💊' }
+      }
+      return { label: 'System', icon: '🔔' }
+    }
+
+    // Generate contextual detail message based on notification type
+    const getDetailedContext = () => {
+      const type = notification.type?.toUpperCase()
+      
+      switch (type) {
+        case 'DOSE_MISSED':
+          return `${notification.patientName || 'Patient'} missed ${notification.medicineName ? `${notification.medicineName}` : 'a dose'} ${notification.dosedScheduleTime ? `at ${notification.dosedScheduleTime}` : ''}`
+        
+        case 'DOSE_REMINDER':
+          return `Reminder: ${notification.medicineName || 'Take medication'} ${notification.dosedScheduleTime ? `at ${notification.dosedScheduleTime}` : ''}`
+        
+        case 'DOSE_TAKEN':
+          return `${notification.patientName || 'Patient'} took ${notification.medicineName || 'medication'} successfully`
+        
+        case 'ADHERENCE_ALERT':
+          return `${notification.patientName || 'Patient'}'s medication adherence has decreased`
+        
+        case 'CAREGIVER_ALERT':
+          return `Alert from caregiver: ${notification.details || 'Please review'}`
+        
+        case 'REFILL_REMINDER':
+          return `${notification.medicineName || 'Medication'} needs refill ${notification.dosedScheduleTime ? `by ${notification.dosedScheduleTime}` : ''}`
+        
+        case 'WEEKLY_REPORT':
+          return `Weekly medication adherence report is ready for review`
+        
+        default:
+          return notification.message
+      }
+    }
+
+    const senderInfo = getSenderInfo()
+    const detailedContext = getDetailedContext()
+
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200">
+          {/* Header - Simple and Clean */}
+          <div className="bg-gradient-to-br from-[#2F5B8C] to-[#3E6FA3] p-6 text-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <h2 className="text-xl font-bold">{notification.title}</h2>
+                <p className="text-blue-100 text-sm mt-1">{notification.time}</p>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Content - Clean Layout */}
+          <div className="p-6 space-y-4">
+            {/* From Section */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <p className="text-xs uppercase tracking-wider font-semibold text-blue-600 mb-2">From</p>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">{senderInfo.icon}</span>
+                <div>
+                  <p className="font-semibold text-gray-900">{senderInfo.label}</p>
+                  {notification.sender && notification.sender !== 'System' && (
+                    <p className="text-sm text-gray-600">{notification.sender}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Message Section - Detailed Context */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <p className="text-xs uppercase tracking-wider font-semibold text-gray-600 mb-2">Details</p>
+              <p className="text-gray-900 text-sm leading-relaxed font-medium">{detailedContext}</p>
+            </div>
+
+            {/* Original Message */}
+            {notification.message && notification.message !== detailedContext && (
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                <p className="text-xs text-gray-600 text-center italic">{notification.message}</p>
+              </div>
+            )}
+
+            {/* Status */}
+            <div className="flex items-center gap-2">
+              {notification.read ? (
+                <span className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                  <CheckCheck size={14} />
+                  Read
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                  <AlertCircle size={14} />
+                  Unread
+                </span>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-4 border-t border-gray-200">
+              {!notification.read && (
+                <button
+                  onClick={() => {
+                    handleMarkAsRead([notification.id])
+                    onClose()
+                  }}
+                  className="flex-1 px-4 py-2.5 bg-[#2F5B8C] hover:bg-[#264a73] text-white font-semibold rounded-lg transition-colors text-sm"
+                >
+                  Mark as Read
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  handleDelete(notification.id)
+                  onClose()
+                }}
+                className="flex-1 px-4 py-2.5 bg-red-100 hover:bg-red-200 text-red-700 font-semibold rounded-lg transition-colors text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const NotificationItem = ({ notification }) => {
     const Icon = notification.icon
     return (
-      <div className={`border-l-4 p-5 rounded-lg transition-all duration-300 hover:shadow-md ${
+      <div 
+        onClick={() => setSelectedNotification(notification)}
+        className={`border-l-4 p-5 rounded-lg transition-all duration-300 hover:shadow-md cursor-pointer hover:scale-[1.01] ${
         notification.read 
           ? 'bg-gray-50 border-gray-300' 
           : 'bg-blue-50 border-blue-400 shadow-sm'
@@ -161,7 +317,7 @@ export default function Notifications() {
                 <h4 className="font-semibold text-gray-900">{notification.title}</h4>
                 <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                 {!notification.read && (
                   <button
                     onClick={() => handleMarkAsRead([notification.id])}
@@ -299,6 +455,14 @@ export default function Notifications() {
           </div>
         )}
       </div>
+
+      {/* Notification Detail Modal */}
+      {selectedNotification && (
+        <NotificationDetailModal 
+          notification={selectedNotification}
+          onClose={() => setSelectedNotification(null)}
+        />
+      )}
     </DashboardLayout>
   )
 }
